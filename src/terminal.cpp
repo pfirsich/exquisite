@@ -77,29 +77,102 @@ std::optional<Key> readKey()
     const auto seqLength = getUtf8ByteSequenceLength(static_cast<uint8_t>(c));
 
     if (seqLength > 1) {
-        Utf8Sequence seq(c);
-        if (read(STDIN_FILENO, &seq.bytes[1], seqLength - 1) != static_cast<int>(seqLength) - 1)
+        char seq[4] = { c };
+        if (read(STDIN_FILENO, &seq[0], seqLength - 1) != static_cast<int>(seqLength) - 1)
             die("Read incomplete utf8 code point from terminal");
-        seq.length = seqLength;
-        return Key { std::vector<char>(seq.bytes, seq.bytes + seq.length), false, false, seq };
+        return Key(&seq[0], seqLength);
     }
+
+    // TODO: Be smarter about Ctrl. Ctrl is pressed if the first two bits are 00
 
     if (c == 9)
-        return Key { { c }, false, false, SpecialKey::Tab };
+        return Key(&c, 1, SpecialKey::Tab);
 
     if (c == 13)
-        return Key { { c }, false, false, SpecialKey::Return };
+        return Key(&c, 1, SpecialKey::Return);
 
-    if (c == 27)
-        return Key { { c }, false, false, SpecialKey::Escape };
+    if (c == 27) {
+        char seq[4] = { c };
 
-    if (c == 127)
-        return Key { { c }, false, false, SpecialKey::Backspace };
+        // From now on if we can't understand the sequence, just return Escape
 
-    if (c > 0 && c < 27) {
-        return Key { { c }, true, false, Utf8Sequence(c - 1 + 'a') };
+        if (read(STDIN_FILENO, &seq[1], 1) != 1)
+            return Key(&seq[0], 1, SpecialKey::Escape);
+
+        if (seq[1] == '[') {
+            if (read(STDIN_FILENO, &seq[2], 1) != 1)
+                return Key(&seq[0], 2, SpecialKey::Escape);
+
+            if (seq[2] >= '0' && seq[2] <= '9') {
+                if (read(STDIN_FILENO, &seq[3], 1) != 1)
+                    return Key(&seq[0], 3, SpecialKey::Escape);
+                if (seq[3] == '~') {
+                    switch (seq[2]) {
+                    case '1':
+                        return Key(&seq[0], 4, SpecialKey::Home);
+                    case '3':
+                        return Key(&seq[0], 4, SpecialKey::Delete);
+                    case '4':
+                        return Key(&seq[0], 4, SpecialKey::End);
+                    case '5':
+                        return Key(&seq[0], 4, SpecialKey::PageUp);
+                    case '6':
+                        return Key(&seq[0], 4, SpecialKey::PageDown);
+                    case '7':
+                        return Key(&seq[0], 4, SpecialKey::Home);
+                    case '8':
+                        return Key(&seq[0], 4, SpecialKey::End);
+                    default:
+                        return Key(&seq[0], 4, SpecialKey::Escape);
+                    }
+                }
+            } else {
+                switch (seq[2]) {
+                case 'A':
+                    return Key(&seq[0], 3, SpecialKey::Up);
+                case 'B':
+                    return Key(&seq[0], 3, SpecialKey::Down);
+                case 'C':
+                    return Key(&seq[0], 3, SpecialKey::Right);
+                case 'D':
+                    return Key(&seq[0], 3, SpecialKey::Left);
+                case 'H':
+                    return Key(&seq[0], 3, SpecialKey::Home);
+                case 'F':
+                    return Key(&seq[0], 3, SpecialKey::End);
+                default:
+                    return Key(&seq[0], 3, SpecialKey::Escape);
+                }
+            }
+        } else if (seq[1] == 'O') {
+            if (read(STDIN_FILENO, &seq[2], 1) != 1)
+                return Key(&seq[0], 2, false, true, 'O');
+
+            switch (seq[2]) {
+            case 'H':
+                return Key(&seq[0], 3, SpecialKey::Home);
+            case 'F':
+                return Key(&seq[0], 3, SpecialKey::End);
+            default:
+                return Key(&seq[0], 3, SpecialKey::Escape);
+            }
+        } else if (seq[1] == 13) {
+            return Key(&seq[0], 2, false, true, SpecialKey::Return);
+        } else if (seq[1] > 0 && seq[1] < 27) {
+            return Key(&seq[0], 2, true, true, seq[1] - 1 + 'a');
+        } else if (seq[1] == 127) {
+            return Key(&seq[0], 2, false, true, SpecialKey::Backspace);
+        } else {
+            return Key(&seq[0], 2, false, true, seq[1]);
+        }
     }
 
-    return Key { { c }, false, false, Utf8Sequence(c) };
+    if (c == 127)
+        return Key(&c, 1, SpecialKey::Backspace);
+
+    if (c > 0 && c < 27)
+        return Key(c, true, false, c - 1 + 'a');
+
+    return Key(c, false, false, c);
 }
 }

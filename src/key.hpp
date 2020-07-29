@@ -28,6 +28,7 @@ struct Utf8Sequence {
 
     Utf8Sequence();
     Utf8Sequence(char c);
+    Utf8Sequence(const char* bytes, size_t length);
 
     char32_t getCodePoint() const;
 
@@ -39,4 +40,10 @@ struct Key {
     bool ctrl;
     bool alt;
     std::variant<Utf8Sequence, SpecialKey> key;
+
+    Key(const char* bytes, size_t len); // utf8 sequence
+    Key(const char* bytes, size_t len, SpecialKey key); // special key
+    Key(char byte, bool ctrl, bool alt, char key); // other chars
+    Key(const char* bytes, size_t len, bool ctrl, bool alt, char key);
+    Key(const char* bytes, size_t len, bool ctrl, bool alt, SpecialKey key);
 };

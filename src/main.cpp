@@ -27,14 +27,14 @@ int main()
             for (const auto c : key.bytes)
                 printf("%X", static_cast<uint8_t>(c));
             printf(" ");
+            if (key.ctrl)
+                printf("ctrl+");
+            if (key.alt)
+                printf("alt+");
 
             if (const auto special = std::get_if<SpecialKey>(&key.key)) {
                 printf("%s\r\n", toString(*special).c_str());
             } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-                if (key.ctrl)
-                    printf("ctrl+");
-                if (key.alt)
-                    printf("alt+");
                 printf("%.*s\r\n", static_cast<int>(seq->length), seq->bytes);
 
                 if (key.ctrl && *seq == 'q') {
