@@ -133,14 +133,18 @@ void Buffer::moveCursorX(int dx)
         } else {
             // Don't move multiple lines because dx is large
             moveCursorY(1);
-            cursorX = std::min(cursorX, lineLength) + dx - lineLength - 1;
+            cursorX = std::min(cursorX, lineLength) - lineLength + dx - 1;
         }
     } else if (dx < 0) {
         if (cursorX >= static_cast<size_t>(-dx)) {
             // If you move left and cursorX is > lineLength, pretend it was at the end
             cursorX = std::min(cursorX, lineLength) + dx;
         } else {
-            cursorX = 0;
+            if (cursorY > 0) {
+                moveCursorY(-1);
+                const auto length = text.getLine(cursorY).length;
+                cursorX = std::max(0ul, length + dx + 1);
+            }
         }
     }
     debug("cursor: ", cursorX, ", ", cursorY);

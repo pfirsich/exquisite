@@ -8,16 +8,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "control.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
 #include "terminal.hpp"
 #include "util.hpp"
-
-// char code for ctrl + letter
-constexpr char ctrl(char c)
-{
-    return c & 0b00011111;
-}
 
 bool processInput(const Key& key)
 {
@@ -74,8 +69,8 @@ bool processInput(const Key& key)
         // printf("%.*s\r\n", static_cast<int>(seq->length), seq->bytes);
 
         if (key.ctrl && *seq == 'q') {
-            terminal::write(control::clear());
-            terminal::write(control::resetCursor());
+            terminal::write(control::clear);
+            terminal::write(control::resetCursor);
             printf("Quit.\r\n");
             return false;
         }

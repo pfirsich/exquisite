@@ -72,7 +72,7 @@ void init()
         die("tcsetattr");
 }
 
-Coord getSize()
+Vec getSize()
 {
     winsize ws;
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -81,7 +81,7 @@ Coord getSize()
         die("Invalid terminal size");
     } else {
         assert(ws.ws_col > 0 && ws.ws_row > 0);
-        return Coord { ws.ws_col, ws.ws_row };
+        return Vec { ws.ws_col, ws.ws_row };
     }
 }
 
@@ -225,40 +225,5 @@ void flushWrite()
 {
     write(std::string_view(writeBuffer.data(), writeBuffer.size()));
     writeBuffer.clear();
-}
-}
-
-namespace control {
-std::string_view clear()
-{
-    return "\x1b[2J"; // clear whole screen
-}
-
-std::string_view clearLine()
-{
-    return "\x1b[K";
-}
-
-std::string_view resetCursor()
-{
-    return "\x1b[H";
-}
-
-std::string_view hideCursor()
-{
-    return "\x1b[?25l";
-}
-
-std::string_view showCursor()
-{
-    return "\x1b[?25h";
-}
-
-std::string moveCursor(const Coord& pos)
-{
-    char buf[32];
-    snprintf(
-        buf, sizeof(buf), "\x1b[%d;%dH", static_cast<int>(pos.y + 1), static_cast<int>(pos.x + 1));
-    return std::string(&buf[0]);
 }
 }
