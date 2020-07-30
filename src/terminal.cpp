@@ -106,10 +106,8 @@ Vec getCursorPosition()
         die("invalid cursor pos");
 
     int x = 0, y = 0;
-    debug("get cursor buf (", i, "): '", std::string_view(&buf[1], i - 1), "'");
     if (sscanf(&buf[2], "%d;%d", &y, &x) != 2)
         die("malformed cursor pos");
-    debug("pos: ", x, ", ", y);
 
     assert(x > 0 && y > 0);
     return Vec { static_cast<size_t>(x - 1), static_cast<size_t>(y - 1) };
@@ -142,7 +140,7 @@ std::optional<Key> readKey()
 
     if (seqLength > 1) {
         char seq[4] = { c };
-        if (read(STDIN_FILENO, &seq[0], seqLength - 1) != static_cast<int>(seqLength) - 1)
+        if (read(STDIN_FILENO, &seq[1], seqLength - 1) != static_cast<int>(seqLength) - 1)
             die("Read incomplete utf8 code point from terminal");
         return Key(&seq[0], seqLength);
     }
