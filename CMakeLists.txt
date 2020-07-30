@@ -18,6 +18,7 @@ set(SRC
   main.cpp
   key.cpp
   terminal.cpp
+  utf8.cpp
   util.cpp
 )
 list(TRANSFORM SRC PREPEND src/)

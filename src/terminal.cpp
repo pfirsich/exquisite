@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "debug.hpp"
+#include "utf8.hpp"
 #include "util.hpp"
 
 using namespace std::literals;
@@ -113,20 +114,6 @@ Vec getCursorPosition()
     return Vec { static_cast<size_t>(x - 1), static_cast<size_t>(y - 1) };
 }
 
-namespace {
-    size_t getUtf8ByteSequenceLength(uint8_t firstCodeUnit)
-    {
-        if ((firstCodeUnit & 0b11110000) == 0b11110000)
-            return 4;
-        if ((firstCodeUnit & 0b11100000) == 0b11100000)
-            return 3;
-        if ((firstCodeUnit & 0b11000000) == 0b11000000)
-            return 2;
-        else
-            return 1;
-    }
-}
-
 std::optional<Key> readKey()
 {
     int nread;
@@ -136,7 +123,7 @@ std::optional<Key> readKey()
             die("read");
     }
 
-    const auto seqLength = getUtf8ByteSequenceLength(static_cast<uint8_t>(c));
+    const auto seqLength = utf8::getByteSequenceLength(static_cast<uint8_t>(c));
 
     if (seqLength > 1) {
         char seq[4] = { c };

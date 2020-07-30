@@ -4,6 +4,7 @@
 #include <tuple>
 
 #include "debug.hpp"
+#include "utf8.hpp"
 
 TextBuffer::TextBuffer()
 {
@@ -195,9 +196,9 @@ void Buffer::moveCursorRight()
     assert(cursorX <= line.length);
 
     // multi-code unit code point
-    if (text[line.offset + cursorX] > 0x7f) {
-        while (cursorX < line.length && text[line.offset + cursorX] > 0x7f)
-            cursorX++;
+    const auto ch = text[line.offset + cursorX];
+    if (ch < 0) {
+        cursorX += utf8::getByteSequenceLength(static_cast<uint8_t>(ch));
         debug("skipped utf8: cursorX = ", cursorX);
         return;
     }
@@ -225,7 +226,8 @@ void Buffer::moveCursorLeft()
     }
 
     // Skip all utf8 continuation bytes (0xb10XXXXXX)
-    while (cursorX > 0 && (text[line.offset + cursorX] & 0b11000000) == 0b10000000)
+    while (cursorX > 0
+        && (static_cast<uint8_t>(text[line.offset + cursorX - 1]) & 0b11000000) == 0b10000000)
         cursorX--;
 
     // First byte of a code point is either 0XXXXXXX, 110XXXXX, 1110XXXX or 11110XXX
