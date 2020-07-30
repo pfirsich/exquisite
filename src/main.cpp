@@ -3,6 +3,9 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "debug.hpp"
@@ -81,11 +84,54 @@ bool processInput(const Key& key)
     return true;
 }
 
-int main()
+void readFile(const std::string& path)
 {
+    auto f = std::unique_ptr<FILE, decltype(&fclose)>(fopen(path.c_str(), "rb"), &fclose);
+    fseek(f.get(), 0, SEEK_END);
+    const auto size = ftell(f.get());
+    fseek(f.get(), 0, SEEK_SET);
+    std::vector<char> buf(size, '\0');
+    fread(buf.data(), 1, size, f.get());
+    const auto sv = std::string_view(buf.data(), buf.size());
+    editor::buffer.set(sv);
+    debug("Read from file:\n", sv);
+}
+
+void readStdin()
+{
+    std::vector<char> buf;
+    char c;
+    while (read(STDIN_FILENO, &c, 1) > 0) {
+        buf.push_back(c);
+    }
+    const auto sv = std::string_view(buf.data(), buf.size());
+    editor::buffer.set(sv);
+    debug("Read from tty:\n", sv);
+}
+
+void printUsage()
+{
+    printf("Usage: `exquisite <file>` or `<cmd> | exquisite`\n");
+}
+
+int main(int argc, char** argv)
+{
+    std::vector<std::string> args(argv + 1, argv + argc);
+    if (args.size() > 0) {
+        readFile(args[0]);
+    } else if (!isatty(STDIN_FILENO)) {
+        readStdin();
+        // const int fd = dup(STDIN_FILENO);
+        const int tty = open("/dev/tty", O_RDONLY);
+        dup2(tty, STDIN_FILENO);
+        close(tty);
+    } else {
+        printUsage();
+        exit(1);
+    }
+
     terminal::init();
 
-    editor::buffer.set("Hello World\nIt is me..\n\nJoel!");
     for (size_t l = 0; l < editor::buffer.getLineCount(); ++l) {
         const auto line = editor::buffer.getLine(l);
         debug("line ", l, ": offset = ", line.offset, ", length = ", line.length);
