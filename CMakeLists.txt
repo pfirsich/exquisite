@@ -12,6 +12,8 @@ if (EXQUISITE_ENABLE_ASAN)
 endif()
 
 set(SRC
+  buffer.cpp
+  editor.cpp
   main.cpp
   key.cpp
   terminal.cpp

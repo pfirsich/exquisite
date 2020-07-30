@@ -4,17 +4,23 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include "util.hpp"
 
+using namespace std::literals;
+
 namespace {
 termios termiosBackup;
+std::vector<char> writeBuffer;
 
 void deinit()
 {
+    terminal::write("\x1b[?1049l");
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &termiosBackup))
         die("tcsetattr");
 }
@@ -23,6 +29,7 @@ void deinit()
 namespace terminal {
 void init()
 {
+    write("\x1b[?1049h");
     if (tcgetattr(STDIN_FILENO, &termiosBackup))
         die("tcgetattr");
     atexit(deinit);
@@ -49,6 +56,19 @@ void init()
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &ios))
         die("tcsetattr");
+}
+
+Coord getSize()
+{
+    winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
+        // TODO:
+        // https://viewsourcecode.org/snaptoken/kilo/03.rawInputAndOutput.html#window-size-the-hard-way
+        die("Invalid terminal size");
+    } else {
+        assert(ws.ws_col > 0 && ws.ws_row > 0);
+        return Coord { ws.ws_col, ws.ws_row };
+    }
 }
 
 namespace {
@@ -174,5 +194,57 @@ std::optional<Key> readKey()
         return Key(c, true, false, c - 1 + 'a');
 
     return Key(c, false, false, c);
+}
+
+void write(std::string_view str)
+{
+    if (::write(STDOUT_FILENO, str.data(), str.size()) != static_cast<ssize_t>(str.size()))
+        die("write");
+}
+
+void bufferWrite(std::string_view str)
+{
+    writeBuffer.insert(writeBuffer.end(), str.begin(), str.end());
+}
+
+void flushWrite()
+{
+    write(std::string_view(writeBuffer.data(), writeBuffer.size()));
+    writeBuffer.clear();
+}
+}
+
+namespace control {
+std::string_view clear()
+{
+    return "\x1b[2J"; // clear whole screen
+}
+
+std::string_view clearLine()
+{
+    return "\x1b[K";
+}
+
+std::string_view resetCursor()
+{
+    return "\x1b[H";
+}
+
+std::string_view hideCursor()
+{
+    return "\x1b[?25l";
+}
+
+std::string_view showCursor()
+{
+    return "\x1b[?25h";
+}
+
+std::string moveCursor(const Coord& pos)
+{
+    char buf[32];
+    snprintf(
+        buf, sizeof(buf), "\x1b[%d;%dH", static_cast<int>(pos.y + 1), static_cast<int>(pos.x + 1));
+    return std::string(&buf[0]);
 }
 }
