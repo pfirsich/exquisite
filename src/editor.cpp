@@ -89,7 +89,7 @@ std::optional<std::string_view> getControlString(char ch)
 namespace editor {
 Buffer buffer;
 
-void drawBuffer(const Buffer& buf)
+Vec drawBuffer(const Buffer& buf)
 {
     terminal::bufferWrite(control::sgr::reset);
 
@@ -99,20 +99,24 @@ void drawBuffer(const Buffer& buf)
     const auto firstLine = buf.scrollY;
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
 
-    std::string dbg;
-    const auto fl = buf.text.getLine(firstLine);
-    dbg.reserve(fl.length);
-    for (size_t i = fl.offset; i < fl.offset + fl.length; ++i) {
-        const auto ch = buffer.text[i];
-        dbg.append(&ch, 1);
-    }
-    debug("firstLine: ", dbg);
-
+    Vec drawCursor = { 0, 0 };
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
         bool faint = false;
+
+        if (buffer.cursorY == l) {
+            drawCursor = terminal::getCursorPosition();
+            drawCursor.x = line.length;
+        }
+
         for (size_t i = line.offset; i < line.offset + line.length; ++i) {
             const auto ch = buf.text[i];
+
+            // This is not a nice way to do it, but it's easy
+            if (buffer.cursorY == l && buffer.cursorX == i - line.offset) {
+                terminal::flushWrite();
+                drawCursor = terminal::getCursorPosition();
+            }
 
             const bool control = std::iscntrl(ch);
             if (control) {
@@ -146,6 +150,8 @@ void drawBuffer(const Buffer& buf)
         if (y < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+
+    return drawCursor;
 }
 
 void redraw()
@@ -153,12 +159,9 @@ void redraw()
     terminal::bufferWrite(control::hideCursor);
     terminal::bufferWrite(control::resetCursor);
 
-    drawBuffer(buffer);
+    const auto drawCursor = drawBuffer(buffer);
 
-    const auto lineLength = buffer.text.getLine(buffer.cursorY).length;
-    const auto cursorX = std::min(lineLength - 1, buffer.cursorX);
-    const auto cursorY = buffer.cursorY - buffer.scrollY;
-    terminal::bufferWrite(control::moveCursor(Vec { cursorX, cursorY }));
+    terminal::bufferWrite(control::moveCursor(drawCursor));
     terminal::bufferWrite(control::showCursor);
 
     terminal::flushWrite();

@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "debug.hpp"
 #include "util.hpp"
 
 using namespace std::literals;
@@ -83,6 +84,35 @@ Vec getSize()
         assert(ws.ws_col > 0 && ws.ws_row > 0);
         return Vec { ws.ws_col, ws.ws_row };
     }
+}
+
+Vec getCursorPosition()
+{
+    if (::write(STDOUT_FILENO, "\x1b[6n", 4) != 4)
+        die("write 6n");
+
+    char buf[32];
+    size_t i = 0;
+    while (i < sizeof(buf) - 1) {
+        if (read(STDIN_FILENO, &buf[i], 1) != 1)
+            break;
+        if (buf[i] == 'R')
+            break;
+        i++;
+    }
+    buf[i] = '\0';
+
+    if (buf[0] != '\x1b' || buf[1] != '[')
+        die("invalid cursor pos");
+
+    int x = 0, y = 0;
+    debug("get cursor buf (", i, "): '", std::string_view(&buf[1], i - 1), "'");
+    if (sscanf(&buf[2], "%d;%d", &y, &x) != 2)
+        die("malformed cursor pos");
+    debug("pos: ", x, ", ", y);
+
+    assert(x > 0 && y > 0);
+    return Vec { static_cast<size_t>(x - 1), static_cast<size_t>(y - 1) };
 }
 
 namespace {

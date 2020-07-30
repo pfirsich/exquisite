@@ -14,7 +14,22 @@
 #include "terminal.hpp"
 #include "util.hpp"
 
-bool processInput(const Key& key)
+std::string getCurrentIndent()
+{
+    std::string indent;
+    indent.reserve(32);
+    const auto line = editor::buffer.text.getLine(editor::buffer.cursorY);
+    for (size_t i = line.offset; i < line.offset + line.length; ++i) {
+        const auto ch = editor::buffer.text[i];
+        if (ch == ' ' || ch == '\t')
+            indent.push_back(ch);
+        else
+            break;
+    }
+    return indent;
+}
+
+void processInput(const Key& key)
 {
     /*for (const auto c : key.bytes)
         printf("%X", static_cast<uint8_t>(c));
@@ -31,11 +46,11 @@ bool processInput(const Key& key)
         const auto size = terminal::getSize();
         switch (*special) {
         case SpecialKey::Left:
-            editor::buffer.moveCursorX(-1);
+            editor::buffer.moveCursorLeft();
             editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Right:
-            editor::buffer.moveCursorX(1);
+            editor::buffer.moveCursorRight();
             editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Up:
@@ -62,23 +77,34 @@ bool processInput(const Key& key)
             editor::buffer.cursorX = Buffer::EndOfLine;
             editor::buffer.scroll(size.y);
             break;
+        case SpecialKey::Return:
+            editor::buffer.insert("\n" + getCurrentIndent());
+            break;
+        case SpecialKey::Backspace:
+            debug("backspace");
+            editor::buffer.deleteBackwards(1);
+            break;
+        case SpecialKey::Delete:
+            debug("delete");
+            editor::buffer.deleteForwards(1);
+            break;
         default:
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
         // printf("%.*s\r\n", static_cast<int>(seq->length), seq->bytes);
-
-        if (key.ctrl && *seq == 'q') {
-            terminal::write(control::clear);
-            terminal::write(control::resetCursor);
-            printf("Quit.\r\n");
-            return false;
+        if (key.ctrl) {
+            if (*seq == 'q') {
+                terminal::write(control::clear);
+                terminal::write(control::resetCursor);
+                exit(0);
+            }
+        } else {
+            editor::buffer.insert(std::string_view(&seq->bytes[0], seq->length));
         }
     } else {
         die("Invalid Key variant");
     }
-
-    return true;
 }
 
 void readFile(const std::string& path)
@@ -140,8 +166,7 @@ int main(int argc, char** argv)
         const auto key = terminal::readKey();
 
         if (key) {
-            if (!processInput(*key))
-                break;
+            processInput(*key);
         }
     }
 

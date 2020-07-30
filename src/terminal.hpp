@@ -10,6 +10,7 @@ void init();
 
 // query
 Vec getSize();
+Vec getCursorPosition();
 
 // input
 std::optional<Key> readKey();

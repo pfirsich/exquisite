@@ -39,57 +39,82 @@ std::vector<std::string_view> TextBuffer::getStrings(const Range& range)
 void TextBuffer::set(std::string_view str)
 {
     data_ = std::vector<char>(str.data(), str.data() + str.size());
+    updateLineOffsets();
+}
 
+void TextBuffer::updateLineOffsets()
+{
     lineOffsets_.clear();
     lineOffsets_.push_back(0);
     for (size_t i = 0; i < data_.size(); ++i) {
         if (data_[i] == '\n')
             lineOffsets_.push_back(i + 1);
     }
+    assert(checkLineOffsets());
+}
+
+bool TextBuffer::checkLineOffsets() const
+{
+    debug("offsets:");
+    for (const auto off : lineOffsets_)
+        debug(off);
+
+    if (lineOffsets_[0] != 0) {
+        debug("first offset wrong");
+        return false;
+    }
+    size_t offsetIndex = 1;
+    for (size_t i = 0; i < getSize(); ++i) {
+        const auto ch = operator[](i);
+        if (ch == '\n') {
+            if (lineOffsets_[offsetIndex] != i + 1) {
+                debug("Expected offset ", offsetIndex, " to be ", i, ", but it's ",
+                    lineOffsets_[offsetIndex]);
+                return false;
+            }
+            offsetIndex++;
+        }
+    }
+    return offsetIndex == lineOffsets_.size();
 }
 
 void TextBuffer::insert(size_t offset, std::string_view str)
 {
     data_.insert(data_.begin() + offset, str.data(), str.data() + str.size());
 
-    std::vector<size_t> newLines;
-    newLines.reserve(32); // Allocate once
+    auto line = lineOffsets_.begin() + getLineIndex(offset) + 1;
     for (size_t i = 0; i < str.size(); ++i) {
         if (str[i] == '\n')
-            newLines.push_back(i);
+            lineOffsets_.insert(line, offset + i);
     }
-    if (!newLines.empty()) {
-        // Insert new line offset for each newline found
-        auto line = lineOffsets_.begin() + getLineIndex(offset) + 1;
-        for (size_t i = 0; i < newLines.size(); ++i) {
-            lineOffsets_.insert(line, offset + newLines[i] + 1);
-            line++;
-        }
 
-        // Move all line offsets after the new ones str.size() forward
-        while (line != lineOffsets_.end()) {
-            *line += str.size();
-            line++;
-        }
+    // Move all line offsets after the new ones str.size() forward
+    while (line != lineOffsets_.end()) {
+        *line += str.size();
+        line++;
     }
-}
-
-void TextBuffer::append(std::string_view str)
-{
-    const auto size = data_.size();
-    data_.insert(data_.end(), str.data(), str.data() + str.size());
-    for (size_t i = 0; i < str.size(); ++i) {
-        if (str[i] == '\n')
-            lineOffsets_.push_back(size + i + 1);
-    }
+    assert(checkLineOffsets());
 }
 
 void TextBuffer::remove(const Range& range)
 {
+    debug("remove: offset = ", range.offset, ", length = ", range.length);
     const auto first = data_.begin() + range.offset;
-    data_.erase(first, first + (range.length - 1));
+    data_.erase(first, first + range.length);
 
-    // TODO: LINES!!!!
+    // For all lines after the one that contains range.offset, move their offsets back.
+    // If any of them moved in front of range.offset, they have been removed
+    // This function looks like shit with iterators, so I will use indices
+    const auto line = getLineIndex(range.offset);
+    for (size_t l = getLineCount() - 1; l > line; --l) {
+        debug("move back: ", l);
+        lineOffsets_[l] -= range.length;
+        if (lineOffsets_[l] <= range.offset) {
+            debug("delete: ", l);
+            lineOffsets_.erase(lineOffsets_.begin() + l);
+        }
+    }
+    assert(checkLineOffsets());
 }
 
 size_t TextBuffer::getLineCount() const
@@ -101,8 +126,10 @@ TextBuffer::Range TextBuffer::getLine(LineIndex idx) const
 {
     assert(idx < lineOffsets_.size());
     const auto offset = lineOffsets_[idx];
-    const auto nextOffset = idx == lineOffsets_.size() - 1 ? data_.size() : lineOffsets_[idx + 1];
-    return Range { offset, nextOffset - offset };
+    const auto length = idx == lineOffsets_.size() - 1
+        ? data_.size() - offset
+        : lineOffsets_[idx + 1] - offset - 1; // -1 so we don't count \n
+    return Range { offset, length };
 }
 
 TextBuffer::LineIndex TextBuffer::getLineIndex(size_t offset) const
@@ -114,6 +141,35 @@ TextBuffer::LineIndex TextBuffer::getLineIndex(size_t offset) const
     return lineOffsets_.size() - 1;
 }
 
+void Buffer::insert(std::string_view str)
+{
+    const auto lineCount = text.getLineCount();
+    text.insert(getCursorOffset(), str);
+    const auto newLines = text.getLineCount() - lineCount;
+    cursorY += newLines;
+    if (newLines > 0) {
+        const auto nl = str.rfind('\n');
+        assert(nl != std::string_view::npos);
+        cursorX = str.size() - nl - 1;
+    } else {
+        cursorX += str.size();
+    }
+}
+
+void Buffer::deleteBackwards(size_t num)
+{
+    // This seems like an easy solution, but really fucking dumb
+    for (size_t i = 0; i < num; ++i)
+        moveCursorLeft();
+    text.remove(TextBuffer::Range { getCursorOffset(), num });
+}
+
+void Buffer::deleteForwards(size_t num)
+{
+    // The cursor can stay where it is
+    text.remove(TextBuffer::Range { getCursorOffset(), num });
+}
+
 size_t Buffer::getCursorOffset() const
 {
     assert(cursorY < text.getLineCount());
@@ -121,33 +177,56 @@ size_t Buffer::getCursorOffset() const
     return line.offset + std::min(line.length, cursorX);
 }
 
-void Buffer::moveCursorX(int dx)
+void Buffer::moveCursorRight()
 {
-    debug("move cursor x ", dx);
+    debug("move cursor right");
     assert(cursorY < text.getLineCount());
-    const auto lineLength = text.getLine(cursorY).length;
+    const auto line = text.getLine(cursorY);
 
-    if (dx > 0) {
-        if (cursorX + dx <= lineLength) {
-            cursorX += dx;
-        } else {
-            // Don't move multiple lines because dx is large
-            moveCursorY(1);
-            cursorX = std::min(cursorX, lineLength) - lineLength + dx - 1;
-        }
-    } else if (dx < 0) {
-        if (cursorX >= static_cast<size_t>(-dx)) {
-            // If you move left and cursorX is > lineLength, pretend it was at the end
-            cursorX = std::min(cursorX, lineLength) + dx;
-        } else {
-            if (cursorY > 0) {
-                moveCursorY(-1);
-                const auto length = text.getLine(cursorY).length;
-                cursorX = std::max(0ul, length + dx + 1);
-            }
-        }
+    // Skip one newline if it's there
+    if (text[line.offset + cursorX] == '\n') {
+        moveCursorY(1);
+        cursorX = 0;
+        debug("skip newline: cursorX = ", cursorX);
+        return;
     }
-    debug("cursor: ", cursorX, ", ", cursorY);
+
+    // multi-code unit code point
+    if (text[line.offset + cursorX] > 0x7f) {
+        while (cursorX < line.length && text[line.offset + cursorX] > 0x7f)
+            cursorX++;
+        debug("skipped utf8: cursorX = ", cursorX);
+        return;
+    }
+
+    // single code unit of utf8 or ascii
+    if (cursorX < line.length)
+        cursorX++;
+    debug("skipped ascii: cursorX = ", cursorX);
+}
+
+void Buffer::moveCursorLeft()
+{
+    assert(cursorY < text.getLineCount());
+
+    if (cursorX == 0) {
+        if (cursorY > 0) {
+            moveCursorY(-1);
+            cursorX = text.getLine(cursorY).length;
+        }
+        // do nothing
+        return;
+    }
+
+    const auto line = text.getLine(cursorY);
+
+    // Skip all utf8 continuation bytes (0xb10XXXXXX)
+    while (cursorX > 0 && (text[line.offset + cursorX] & 0b11000000) == 0b10000000)
+        cursorX--;
+
+    // First byte of a code point is either 0XXXXXXX, 110XXXXX, 1110XXXX or 11110XXX
+    if (cursorX > 0)
+        cursorX--;
 }
 
 void Buffer::moveCursorY(int dy)
