@@ -54,6 +54,9 @@ struct Buffer {
     size_t cursorY = 0; // in lines
     size_t scrollY = 0; // in lines
 
+    TextBuffer::Range getCurrentLine() const;
+    // This will return the cursorX position clamped to the line length
+    size_t getCursorX() const;
     size_t getCursorOffset() const;
 
     void insert(std::string_view str);

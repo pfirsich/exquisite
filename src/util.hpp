@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 
 struct Vec {
@@ -8,3 +9,5 @@ struct Vec {
 };
 
 [[noreturn]] void die(std::string_view msg);
+
+std::string hexString(const void* data, size_t size);

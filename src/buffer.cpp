@@ -55,12 +55,7 @@ void TextBuffer::updateLineOffsets()
 
 bool TextBuffer::checkLineOffsets() const
 {
-    debug("offsets:");
-    for (const auto off : lineOffsets_)
-        debug(off);
-
     if (lineOffsets_[0] != 0) {
-        debug("first offset wrong");
         return false;
     }
     size_t offsetIndex = 1;
@@ -68,8 +63,6 @@ bool TextBuffer::checkLineOffsets() const
         const auto ch = operator[](i);
         if (ch == '\n') {
             if (lineOffsets_[offsetIndex] != i + 1) {
-                debug("Expected offset ", offsetIndex, " to be ", i, ", but it's ",
-                    lineOffsets_[offsetIndex]);
                 return false;
             }
             offsetIndex++;
@@ -82,15 +75,17 @@ void TextBuffer::insert(size_t offset, std::string_view str)
 {
     data_.insert(data_.begin() + offset, str.data(), str.data() + str.size());
 
-    auto line = lineOffsets_.begin() + getLineIndex(offset) + 1;
+    auto line = getLineIndex(offset) + 1;
     for (size_t i = 0; i < str.size(); ++i) {
-        if (str[i] == '\n')
-            lineOffsets_.insert(line, offset + i);
+        if (str[i] == '\n') {
+            lineOffsets_.insert(lineOffsets_.begin() + line, offset + i + 1);
+            line++;
+        }
     }
 
     // Move all line offsets after the new ones str.size() forward
-    while (line != lineOffsets_.end()) {
-        *line += str.size();
+    while (line < lineOffsets_.size()) {
+        lineOffsets_[line] += str.size();
         line++;
     }
     assert(checkLineOffsets());
@@ -98,7 +93,6 @@ void TextBuffer::insert(size_t offset, std::string_view str)
 
 void TextBuffer::remove(const Range& range)
 {
-    debug("remove: offset = ", range.offset, ", length = ", range.length);
     const auto first = data_.begin() + range.offset;
     data_.erase(first, first + range.length);
 
@@ -107,10 +101,8 @@ void TextBuffer::remove(const Range& range)
     // This function looks like shit with iterators, so I will use indices
     const auto line = getLineIndex(range.offset);
     for (size_t l = getLineCount() - 1; l > line; --l) {
-        debug("move back: ", l);
         lineOffsets_[l] -= range.length;
         if (lineOffsets_[l] <= range.offset) {
-            debug("delete: ", l);
             lineOffsets_.erase(lineOffsets_.begin() + l);
         }
     }
@@ -152,7 +144,7 @@ void Buffer::insert(std::string_view str)
         assert(nl != std::string_view::npos);
         cursorX = str.size() - nl - 1;
     } else {
-        cursorX += str.size();
+        cursorX = getCursorX() + str.size();
     }
 }
 
@@ -170,26 +162,37 @@ void Buffer::deleteForwards(size_t num)
     text.remove(TextBuffer::Range { getCursorOffset(), num });
 }
 
-size_t Buffer::getCursorOffset() const
+TextBuffer::Range Buffer::getCurrentLine() const
 {
     assert(cursorY < text.getLineCount());
-    const auto line = text.getLine(cursorY);
-    return line.offset + std::min(line.length, cursorX);
+    return text.getLine(cursorY);
+}
+
+size_t Buffer::getCursorX() const
+{
+    // Treat cursor past the end of the line as positioned at the end of the line
+    return std::min(getCurrentLine().length, cursorX);
+}
+
+size_t Buffer::getCursorOffset() const
+{
+    return getCurrentLine().offset + getCursorX();
 }
 
 void Buffer::moveCursorRight()
 {
     debug("move cursor right");
-    assert(cursorY < text.getLineCount());
-    const auto line = text.getLine(cursorY);
+    const auto line = getCurrentLine();
 
     // Skip one newline if it's there
-    if (text[line.offset + cursorX] == '\n') {
+    if (text[line.offset + getCursorX()] == '\n') {
         moveCursorY(1);
         cursorX = 0;
-        debug("skip newline: cursorX = ", cursorX);
+        debug("skip newline");
         return;
     }
+    // If cursorX > line.length the condition above should have been true
+    assert(cursorX <= line.length);
 
     // multi-code unit code point
     if (text[line.offset + cursorX] > 0x7f) {
@@ -207,7 +210,10 @@ void Buffer::moveCursorRight()
 
 void Buffer::moveCursorLeft()
 {
-    assert(cursorY < text.getLineCount());
+    const auto line = getCurrentLine();
+
+    if (cursorX > line.length)
+        cursorX = line.length;
 
     if (cursorX == 0) {
         if (cursorY > 0) {
@@ -217,8 +223,6 @@ void Buffer::moveCursorLeft()
         // do nothing
         return;
     }
-
-    const auto line = text.getLine(cursorY);
 
     // Skip all utf8 continuation bytes (0xb10XXXXXX)
     while (cursorX > 0 && (text[line.offset + cursorX] & 0b11000000) == 0b10000000)
@@ -249,5 +253,4 @@ void Buffer::scroll(size_t terminalHeight)
         scrollY = cursorY;
     else if (cursorY - scrollY > terminalHeight)
         scrollY = std::min(text.getLineCount() - 1, cursorY - terminalHeight);
-    debug("new scroll: ", scrollY);
 }

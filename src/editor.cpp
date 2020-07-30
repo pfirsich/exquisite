@@ -10,7 +10,7 @@ using namespace std::literals;
 #include "terminal.hpp"
 
 namespace detail {
-std::optional<std::string_view> getControlString(char ch)
+std::string_view getControlString(char ch)
 {
     assert(std::iscntrl(ch));
     switch (ch) {
@@ -35,7 +35,7 @@ std::optional<std::string_view> getControlString(char ch)
     case 9:
         return "TAB"sv;
     case 10:
-        return std::nullopt; // "LF"sv;
+        return ""; // "LF"sv;
     case 11:
         return "VT"sv;
     case 12:
@@ -89,7 +89,7 @@ std::optional<std::string_view> getControlString(char ch)
 namespace editor {
 Buffer buffer;
 
-Vec drawBuffer(const Buffer& buf)
+void drawBuffer(const Buffer& buf)
 {
     terminal::bufferWrite(control::sgr::reset);
 
@@ -99,35 +99,19 @@ Vec drawBuffer(const Buffer& buf)
     const auto firstLine = buf.scrollY;
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
 
-    Vec drawCursor = { 0, 0 };
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
         bool faint = false;
 
-        if (buffer.cursorY == l) {
-            drawCursor = terminal::getCursorPosition();
-            drawCursor.x = line.length;
-        }
-
         for (size_t i = line.offset; i < line.offset + line.length; ++i) {
             const auto ch = buf.text[i];
 
-            // This is not a nice way to do it, but it's easy
-            if (buffer.cursorY == l && buffer.cursorX == i - line.offset) {
-                terminal::flushWrite();
-                drawCursor = terminal::getCursorPosition();
-            }
-
-            const bool control = std::iscntrl(ch);
-            if (control) {
-                const auto str = detail::getControlString(ch);
-                if (str) {
-                    if (!faint) {
-                        terminal::bufferWrite(control::sgr::faint);
-                        faint = true;
-                    }
-                    terminal::bufferWrite(*str);
+            if (std::iscntrl(ch)) {
+                if (!faint) {
+                    terminal::bufferWrite(control::sgr::faint);
+                    faint = true;
                 }
+                terminal::bufferWrite(detail::getControlString(ch));
             } else {
                 if (faint) {
                     terminal::bufferWrite(control::sgr::resetIntensity);
@@ -136,22 +120,43 @@ Vec drawBuffer(const Buffer& buf)
                 terminal::bufferWrite(std::string_view(&ch, 1));
             }
         }
+
         if (faint) {
             terminal::bufferWrite(control::sgr::resetIntensity);
             faint = false;
         }
+
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+
     for (size_t y = lastLine + 1; y < size.y; ++y) {
         terminal::bufferWrite("~");
         terminal::bufferWrite(control::clearLine);
         if (y < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+}
 
-    return drawCursor;
+Vec getDrawCursor(const Buffer& buffer)
+{
+    Vec cur = { 0, buffer.cursorY - buffer.scrollY };
+    std::vector<char> v;
+    const auto line = buffer.getCurrentLine();
+    for (size_t i = line.offset; i < line.offset + buffer.getCursorX(); ++i) {
+        const auto ch = buffer.text[i];
+        v.push_back(ch);
+        if (std::iscntrl(ch)) {
+            cur.x += detail::getControlString(ch).size();
+        } else {
+            // Somewhat hacky, but we just don't count utf8 continuation bytes
+            if ((ch & 0b11000000) != 0b10000000)
+                cur.x += 1;
+        }
+    }
+    debug("line before cursor (", buffer.cursorX, "): ", hexString(v.data(), v.size()));
+    return cur;
 }
 
 void redraw()
@@ -159,8 +164,10 @@ void redraw()
     terminal::bufferWrite(control::hideCursor);
     terminal::bufferWrite(control::resetCursor);
 
-    const auto drawCursor = drawBuffer(buffer);
+    drawBuffer(buffer);
 
+    const auto drawCursor = getDrawCursor(buffer);
+    debug("draw cursor: ", drawCursor.x, ", ", drawCursor.y);
     terminal::bufferWrite(control::moveCursor(drawCursor));
     terminal::bufferWrite(control::showCursor);
 
