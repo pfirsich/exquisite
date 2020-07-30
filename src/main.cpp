@@ -36,34 +36,36 @@ bool processInput(const Key& key)
         const auto size = terminal::getSize();
         switch (*special) {
         case SpecialKey::Left:
-            if (editor::cursor.x > 0)
-                editor::cursor.x--;
-            debug("Cursor: ", editor::cursor.x, ", ", editor::cursor.y);
+            editor::buffer.moveCursorX(-1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Right:
-            editor::cursor.x = std::min(size.x - 1, editor::cursor.x + 1);
-            debug("Cursor: ", editor::cursor.x, ", ", editor::cursor.y);
+            editor::buffer.moveCursorX(1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Up:
-            if (editor::cursor.y > 0)
-                editor::cursor.y--;
-            debug("Cursor: ", editor::cursor.x, ", ", editor::cursor.y);
+            editor::buffer.moveCursorY(-1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Down:
-            editor::cursor.y = std::min(size.y - 1, editor::cursor.y + 1);
-            debug("Cursor: ", editor::cursor.x, ", ", editor::cursor.y);
+            editor::buffer.moveCursorY(1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::PageUp:
-            editor::cursor.y = std::max(0ul, editor::cursor.y - size.y);
+            editor::buffer.moveCursorY(-size.y - 1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::PageDown:
-            editor::cursor.y = std::min(size.y - 1, editor::cursor.y + size.y);
+            editor::buffer.moveCursorY(size.y - 1);
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::Home:
-            editor::cursor.x = 0;
+            editor::buffer.cursorX = 0;
+            editor::buffer.scroll(size.y);
             break;
         case SpecialKey::End:
-            editor::cursor.x = size.x - 1;
+            editor::buffer.cursorX = Buffer::EndOfLine;
+            editor::buffer.scroll(size.y);
             break;
         default:
             break;
@@ -93,7 +95,7 @@ void readFile(const std::string& path)
     std::vector<char> buf(size, '\0');
     fread(buf.data(), 1, size, f.get());
     const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.set(sv);
+    editor::buffer.text.set(sv);
     debug("Read from file:\n", sv);
 }
 
@@ -105,7 +107,7 @@ void readStdin()
         buf.push_back(c);
     }
     const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.set(sv);
+    editor::buffer.text.set(sv);
     debug("Read from tty:\n", sv);
 }
 
@@ -132,8 +134,8 @@ int main(int argc, char** argv)
 
     terminal::init();
 
-    for (size_t l = 0; l < editor::buffer.getLineCount(); ++l) {
-        const auto line = editor::buffer.getLine(l);
+    for (size_t l = 0; l < editor::buffer.text.getLineCount(); ++l) {
+        const auto line = editor::buffer.text.getLine(l);
         debug("line ", l, ": offset = ", line.offset, ", length = ", line.length);
     }
 

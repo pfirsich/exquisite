@@ -3,30 +3,30 @@
 #include <cassert>
 #include <tuple>
 
-// TODO: Implement this using a Rope later
+#include "debug.hpp"
 
-Buffer::Buffer()
+TextBuffer::TextBuffer()
 {
 }
 
-Buffer::Buffer(std::string_view str)
+TextBuffer::TextBuffer(std::string_view str)
 {
     set(str);
 }
 
-size_t Buffer::getSize() const
+size_t TextBuffer::getSize() const
 {
     return data_.size();
 }
 
-char Buffer::operator[](size_t offset) const
+char TextBuffer::operator[](size_t offset) const
 {
     return data_[offset];
 }
 
 // TODO: Custom iterator
 // (Pointer, length) tuples
-std::vector<std::string_view> Buffer::getStrings(const Range& range)
+std::vector<std::string_view> TextBuffer::getStrings(const Range& range)
 {
     assert(range.offset < getSize());
     std::vector<std::string_view> strs;
@@ -36,7 +36,7 @@ std::vector<std::string_view> Buffer::getStrings(const Range& range)
     return strs;
 }
 
-void Buffer::set(std::string_view str)
+void TextBuffer::set(std::string_view str)
 {
     data_ = std::vector<char>(str.data(), str.data() + str.size());
 
@@ -48,7 +48,7 @@ void Buffer::set(std::string_view str)
     }
 }
 
-void Buffer::insert(size_t offset, std::string_view str)
+void TextBuffer::insert(size_t offset, std::string_view str)
 {
     data_.insert(data_.begin() + offset, str.data(), str.data() + str.size());
 
@@ -74,7 +74,7 @@ void Buffer::insert(size_t offset, std::string_view str)
     }
 }
 
-void Buffer::append(std::string_view str)
+void TextBuffer::append(std::string_view str)
 {
     const auto size = data_.size();
     data_.insert(data_.end(), str.data(), str.data() + str.size());
@@ -84,7 +84,7 @@ void Buffer::append(std::string_view str)
     }
 }
 
-void Buffer::remove(const Range& range)
+void TextBuffer::remove(const Range& range)
 {
     const auto first = data_.begin() + range.offset;
     data_.erase(first, first + (range.length - 1));
@@ -92,12 +92,12 @@ void Buffer::remove(const Range& range)
     // TODO: LINES!!!!
 }
 
-size_t Buffer::getLineCount() const
+size_t TextBuffer::getLineCount() const
 {
     return lineOffsets_.size();
 }
 
-Buffer::Range Buffer::getLine(LineIndex idx) const
+TextBuffer::Range TextBuffer::getLine(LineIndex idx) const
 {
     assert(idx < lineOffsets_.size());
     const auto offset = lineOffsets_[idx];
@@ -105,11 +105,66 @@ Buffer::Range Buffer::getLine(LineIndex idx) const
     return Range { offset, nextOffset - offset };
 }
 
-Buffer::LineIndex Buffer::getLineIndex(size_t offset) const
+TextBuffer::LineIndex TextBuffer::getLineIndex(size_t offset) const
 {
     assert(offset < getSize());
     for (LineIndex i = 0; i < lineOffsets_.size() - 1; ++i)
         if (offset < lineOffsets_[i + 1])
             return i;
     return lineOffsets_.size() - 1;
+}
+
+size_t Buffer::getCursorOffset() const
+{
+    assert(cursorY < text.getLineCount());
+    const auto line = text.getLine(cursorY);
+    return line.offset + std::min(line.length, cursorX);
+}
+
+void Buffer::moveCursorX(int dx)
+{
+    debug("move cursor x ", dx);
+    assert(cursorY < text.getLineCount());
+    const auto lineLength = text.getLine(cursorY).length;
+
+    if (dx > 0) {
+        if (cursorX + dx <= lineLength) {
+            cursorX += dx;
+        } else {
+            // Don't move multiple lines because dx is large
+            moveCursorY(1);
+            cursorX = std::min(cursorX, lineLength) + dx - lineLength - 1;
+        }
+    } else if (dx < 0) {
+        if (cursorX >= static_cast<size_t>(-dx)) {
+            // If you move left and cursorX is > lineLength, pretend it was at the end
+            cursorX = std::min(cursorX, lineLength) + dx;
+        } else {
+            cursorX = 0;
+        }
+    }
+    debug("cursor: ", cursorX, ", ", cursorY);
+}
+
+void Buffer::moveCursorY(int dy)
+{
+    debug("move cursor y ", dy);
+    if (dy > 0) {
+        cursorY = std::min(text.getLineCount() - 1, cursorY + dy);
+    } else if (dy < 0) {
+        if (cursorY >= static_cast<size_t>(-dy))
+            cursorY += dy;
+        else
+            cursorY = 0;
+    }
+    debug("cursor: ", cursorX, ", ", cursorY);
+}
+
+void Buffer::scroll(size_t terminalHeight)
+{
+    if (cursorY < scrollY)
+        scrollY = cursorY;
+    else if (cursorY - scrollY > terminalHeight)
+        scrollY = std::min(text.getLineCount() - 1, cursorY - terminalHeight);
+    debug("new scroll: ", scrollY);
 }

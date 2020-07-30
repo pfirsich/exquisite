@@ -18,9 +18,23 @@ namespace {
 termios termiosBackup;
 std::vector<char> writeBuffer;
 
-void deinit()
+void switchToAlternateScreen()
+{
+    // https://stackoverflow.com/questions/52988525/restore-terminal-output-after-exit-program
+    // https://unix.stackexchange.com/questions/288962/what-does-1049h-and-1h-ansi-escape-sequences-do/289055#289055
+    // https://invisible-island.net/xterm/xterm.faq.html#xterm_tite
+    // https://www.gnu.org/software/screen/manual/html_node/Control-Sequences.html
+    terminal::write("\x1b[?1049h");
+}
+
+void switchFromAlternateScreen()
 {
     terminal::write("\x1b[?1049l");
+}
+
+void deinit()
+{
+    switchFromAlternateScreen();
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &termiosBackup))
         die("tcsetattr");
 }
@@ -29,7 +43,7 @@ void deinit()
 namespace terminal {
 void init()
 {
-    write("\x1b[?1049h");
+    switchToAlternateScreen();
     if (tcgetattr(STDIN_FILENO, &termiosBackup))
         die("tcgetattr");
     atexit(deinit);
