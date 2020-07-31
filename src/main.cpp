@@ -14,6 +14,65 @@
 #include "terminal.hpp"
 #include "util.hpp"
 
+bool processBufferInput(Buffer& buffer, const Key& key)
+{
+    if (const auto special = std::get_if<SpecialKey>(&key.key)) {
+        // debug("special: ", toString(*special));
+        const auto size = terminal::getSize();
+        switch (*special) {
+        case SpecialKey::Left:
+            buffer.moveCursorLeft();
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::Right:
+            buffer.moveCursorRight();
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::Up:
+            buffer.moveCursorY(-1);
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::Down:
+            buffer.moveCursorY(1);
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::PageUp:
+            buffer.moveCursorY(-size.y - 1);
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::PageDown:
+            buffer.moveCursorY(size.y - 1);
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::Home:
+            buffer.cursorX = 0;
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::End:
+            buffer.cursorX = Buffer::EndOfLine;
+            buffer.scroll(size.y);
+            return true;
+        case SpecialKey::Backspace:
+            buffer.deleteBackwards(1);
+            return true;
+        case SpecialKey::Delete:
+            buffer.deleteForwards(1);
+            return true;
+        default:
+            return false;
+        }
+    } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
+        // debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
+        if (!key.ctrl) {
+            buffer.insert(std::string_view(&seq->bytes[0], seq->length));
+            return true;
+        }
+    } else {
+        die("Invalid Key variant");
+    }
+    return false;
+}
+
 std::string getCurrentIndent()
 {
     std::string indent;
@@ -29,69 +88,71 @@ std::string getCurrentIndent()
     return indent;
 }
 
+editor::StatusMessage insertTextCallback(std::string_view input)
+{
+    if (input.empty())
+        return editor::StatusMessage { "Empty", editor::StatusMessage::Type::Error };
+
+    editor::buffer.insert(input);
+    return editor::StatusMessage { "" };
+}
+
 void processInput(const Key& key)
 {
-    // debug("key hex: ", hexString(key.bytes.data(), key.bytes.size()));
+    if (processBufferInput(editor::buffer, key))
+        return;
+
+    debug("key hex: ", hexString(key.bytes.data(), key.bytes.size()));
+    debug("ctrl: ", key.ctrl, ", alt: ", key.alt);
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         // debug("special: ", toString(*special));
-        const auto size = terminal::getSize();
         switch (*special) {
-        case SpecialKey::Left:
-            editor::buffer.moveCursorLeft();
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::Right:
-            editor::buffer.moveCursorRight();
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::Up:
-            editor::buffer.moveCursorY(-1);
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::Down:
-            editor::buffer.moveCursorY(1);
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::PageUp:
-            editor::buffer.moveCursorY(-size.y - 1);
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::PageDown:
-            editor::buffer.moveCursorY(size.y - 1);
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::Home:
-            editor::buffer.cursorX = 0;
-            editor::buffer.scroll(size.y);
-            break;
-        case SpecialKey::End:
-            editor::buffer.cursorX = Buffer::EndOfLine;
-            editor::buffer.scroll(size.y);
-            break;
         case SpecialKey::Return:
             editor::buffer.insert("\n" + getCurrentIndent());
-            break;
-        case SpecialKey::Backspace:
-            editor::buffer.deleteBackwards(1);
-            break;
-        case SpecialKey::Delete:
-            editor::buffer.deleteForwards(1);
             break;
         default:
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        // debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
+        debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
         if (key.ctrl) {
             if (*seq == 'q') {
                 terminal::write(control::clear);
                 terminal::write(control::resetCursor);
                 exit(0);
             }
-        } else {
-            editor::buffer.insert(std::string_view(&seq->bytes[0], seq->length));
+
+            if (*seq == 'p') {
+                debug("set prompt");
+                editor::currentPrompt = std::make_unique<editor::Prompt>(
+                    editor::Prompt { "Insert Text> ", insertTextCallback });
+            }
         }
+    } else {
+        die("Invalid Key variant");
+    }
+}
+
+void processPromptInput(const Key& key)
+{
+    // debug("key hex: ", hexString(key.bytes.data(), key.bytes.size()));
+    if (processBufferInput(editor::currentPrompt->input, key))
+        return;
+
+    if (const auto special = std::get_if<SpecialKey>(&key.key)) {
+        // debug("special: ", toString(*special));
+        switch (*special) {
+        case SpecialKey::Return:
+            editor::confirmPrompt();
+            break;
+        case SpecialKey::Escape:
+            editor::currentPrompt.reset();
+            break;
+        default:
+            break;
+        }
+    } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
     } else {
         die("Invalid Key variant");
     }
@@ -132,8 +193,10 @@ int main(int argc, char** argv)
     std::vector<std::string> args(argv + 1, argv + argc);
     if (args.size() > 0) {
         readFile(args[0]);
+        editor::setStatusMessage(args[0]);
     } else if (!isatty(STDIN_FILENO)) {
         readStdin();
+        editor::setStatusMessage("Read STDIN");
         // const int fd = dup(STDIN_FILENO);
         const int tty = open("/dev/tty", O_RDONLY);
         dup2(tty, STDIN_FILENO);
@@ -145,17 +208,15 @@ int main(int argc, char** argv)
 
     terminal::init();
 
-    for (size_t l = 0; l < editor::buffer.text.getLineCount(); ++l) {
-        const auto line = editor::buffer.text.getLine(l);
-        debug("line ", l, ": offset = ", line.offset, ", length = ", line.length);
-    }
-
     editor::redraw();
 
     while (true) {
         const auto key = terminal::readKey();
         if (key) {
-            processInput(*key);
+            if (editor::currentPrompt)
+                processPromptInput(*key);
+            else
+                processInput(*key);
         }
 
         editor::redraw();

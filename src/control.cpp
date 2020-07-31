@@ -1,6 +1,13 @@
 #include "control.hpp"
 
 namespace control {
+std::string moveCursorForward(size_t num)
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "\x1b[%dC", static_cast<int>(num));
+    return std::string(&buf[0]);
+}
+
 std::string moveCursor(const Vec& pos)
 {
     char buf[32];

@@ -8,6 +8,7 @@
 
 TextBuffer::TextBuffer()
 {
+    lineOffsets_.push_back(0);
 }
 
 TextBuffer::TextBuffer(std::string_view str)
@@ -23,6 +24,11 @@ size_t TextBuffer::getSize() const
 char TextBuffer::operator[](size_t offset) const
 {
     return data_[offset];
+}
+
+std::string TextBuffer::getString() const
+{
+    return std::string(data_.data(), data_.size());
 }
 
 // TODO: Custom iterator
