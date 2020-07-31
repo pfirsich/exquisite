@@ -1,6 +1,7 @@
 #include "editor.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <string_view>
 
 using namespace std::literals;
@@ -16,9 +17,9 @@ namespace {
     {
         assert(std::iscntrl(ch));
         static constexpr std::array<std::string_view, 32> lut { "NUL"sv, "SOH"sv, "STX"sv, "ETX"sv,
-            "EOT"sv, "ENQ"sv, "ACK"sv, "BEL"sv, "BS"sv, "TAB"sv, ""sv /*LF*/, "VT"sv, "FF"sv,
-            "CR"sv, "SO"sv, "SI"sv, "DLE"sv, "DC1"sv, "DC2"sv, "DC3"sv, "DC4"sv, "NAK"sv, "SYN"sv,
-            "ETB"sv, "CAN"sv, "EM"sv, "SUB"sv, "ESC"sv, "FS"sv, "GS"sv, "RS"sv, "US"sv };
+            "EOT"sv, "ENQ"sv, "ACK"sv, "BEL"sv, "BS"sv, "TAB"sv, "LF"sv, "VT"sv, "FF"sv, "CR"sv,
+            "SO"sv, "SI"sv, "DLE"sv, "DC1"sv, "DC2"sv, "DC3"sv, "DC4"sv, "NAK"sv, "SYN"sv, "ETB"sv,
+            "CAN"sv, "EM"sv, "SUB"sv, "ESC"sv, "FS"sv, "GS"sv, "RS"sv, "US"sv };
         if (ch > 0 && ch < 32)
             return lut[ch];
         if (ch == 127)
@@ -32,7 +33,7 @@ namespace {
 Buffer buffer;
 std::unique_ptr<Prompt> currentPrompt;
 
-Vec drawBuffer(const Buffer& buf, const Vec& size)
+Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
 {
     terminal::bufferWrite(control::sgr::reset);
 
@@ -40,9 +41,6 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
     assert(buf.scrollY <= lineCount - 1);
     const auto firstLine = buf.scrollY;
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
-    terminal::flushWrite();
-    const auto pos = terminal::getCursorPosition();
-    auto drawCursor = Vec { pos.x, pos.y + buf.cursorY - buf.scrollY };
 
     bool faint = false;
     auto setFaint = [&faint](bool f) {
@@ -53,26 +51,42 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
         faint = f;
     };
 
+    // Always make space for at least 3 digits
+    const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
+    // 1 space margin left and right
+    const auto lineNumWidth = showLineNumbers ? lineNumDigits + 2 : 0;
+
+    terminal::flushWrite();
+    const auto pos = terminal::getCursorPosition();
+    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + buf.cursorY - buf.scrollY };
+
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
 
-        if (l > firstLine && pos.x > 0)
+        const bool cursorInLine = l == buf.cursorY;
+
+        if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
+
+        if (showLineNumbers) {
+            terminal::bufferWrite(control::sgr::invert);
+            terminal::bufferWrite(' '); // left margin
+            const auto lineStr = std::to_string(l + 1);
+            for (size_t i = 0; i < lineNumDigits - lineStr.size(); ++i)
+                terminal::bufferWrite(' ');
+            terminal::bufferWrite(lineStr);
+            terminal::bufferWrite(' '); // right margin
+            terminal::bufferWrite(control::sgr::resetInvert);
+        }
 
         for (size_t i = line.offset; i < line.offset + line.length; ++i) {
             const auto ch = buf.text[i];
 
             // Move cursor if the line is correct and we are drawing characters
             // in front of the cursor
-            const bool moveCursor = l == buf.cursorY && i < line.offset + buffer.getCursorX();
+            const bool moveCursor = cursorInLine && i < line.offset + buffer.getCursorX();
 
-            if (ch == '\n') {
-                if (config.renderWhitespace && config.newlineChar) {
-                    setFaint(true);
-                    terminal::bufferWrite(*config.newlineChar);
-                }
-                // do nothing otherwise (don't increase drawCursor)
-            } else if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
+            if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
                 // If whitespace is not rendered, this will fall into "else"
                 setFaint(true);
                 terminal::bufferWrite(*config.spaceChar);
@@ -109,6 +123,17 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
                 // Somewhat hacky, but we just don't count utf8 continuation bytes
                 if (moveCursor && (ch & 0b11000000) != 0b10000000)
                     drawCursor.x++;
+            }
+        }
+
+        const auto newlineOffset = line.offset + line.length;
+        if (newlineOffset < buf.text.getSize()) {
+            debug("hopefully a newline: ", static_cast<int>(buf.text[newlineOffset]), "'",
+                buf.text[newlineOffset], "'");
+            assert(buf.text[newlineOffset] == '\n');
+            if (config.renderWhitespace && config.newlineChar) {
+                setFaint(true);
+                terminal::bufferWrite(*config.newlineChar);
             }
         }
 
@@ -156,7 +181,8 @@ void redraw()
     terminal::bufferWrite(control::resetCursor);
 
     const auto size = terminal::getSize();
-    auto drawCursor = drawBuffer(buffer, Vec { size.x, size.y - 2 });
+    const auto pos = Vec { size.x, size.y - 2 };
+    auto drawCursor = drawBuffer(buffer, pos, config.showLineNumbers);
     terminal::bufferWrite("\r\n");
 
     drawStatusBar();
@@ -164,7 +190,7 @@ void redraw()
     if (currentPrompt) {
         terminal::bufferWrite(currentPrompt->prompt);
         assert(currentPrompt->input.text.getLineCount() == 1);
-        drawCursor = drawBuffer(currentPrompt->input, Vec { size.x, 1 });
+        drawCursor = drawBuffer(currentPrompt->input, Vec { size.x, 1 }, false);
         terminal::bufferWrite(control::clearLine);
     } else {
         switch (statusMessage.type) {
