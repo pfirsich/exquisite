@@ -274,6 +274,11 @@ void write(std::string_view str)
         die("write");
 }
 
+void bufferWrite(char ch)
+{
+    writeBuffer.push_back(ch);
+}
+
 void bufferWrite(std::string_view str)
 {
     writeBuffer.insert(writeBuffer.end(), str.begin(), str.end());

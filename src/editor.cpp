@@ -5,6 +5,7 @@
 
 using namespace std::literals;
 
+#include "config.hpp"
 #include "control.hpp"
 #include "debug.hpp"
 #include "terminal.hpp"
@@ -31,25 +32,6 @@ namespace {
 Buffer buffer;
 std::unique_ptr<Prompt> currentPrompt;
 
-Vec getDrawCursor(const Buffer& buffer)
-{
-    Vec cur = { 0, buffer.cursorY - buffer.scrollY };
-    std::vector<char> v;
-    const auto line = buffer.getCurrentLine();
-    for (size_t i = line.offset; i < line.offset + buffer.getCursorX(); ++i) {
-        const auto ch = buffer.text[i];
-        v.push_back(ch);
-        if (std::iscntrl(ch)) {
-            cur.x += getControlString(ch).size();
-        } else {
-            // Somewhat hacky, but we just don't count utf8 continuation bytes
-            if ((ch & 0b11000000) != 0b10000000)
-                cur.x += 1;
-        }
-    }
-    return cur;
-}
-
 Vec drawBuffer(const Buffer& buf, const Vec& size)
 {
     terminal::bufferWrite(control::sgr::reset);
@@ -60,10 +42,19 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
+    auto drawCursor = Vec { pos.x, pos.y + buf.cursorY - buf.scrollY };
+
+    bool faint = false;
+    auto setFaint = [&faint](bool f) {
+        if (f && !faint)
+            terminal::bufferWrite(control::sgr::faint);
+        if (!f && faint)
+            terminal::bufferWrite(control::sgr::resetIntensity);
+        faint = f;
+    };
 
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
-        bool faint = false;
 
         if (l > firstLine && pos.x > 0)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
@@ -71,26 +62,57 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
         for (size_t i = line.offset; i < line.offset + line.length; ++i) {
             const auto ch = buf.text[i];
 
-            if (std::iscntrl(ch)) {
-                if (!faint) {
-                    terminal::bufferWrite(control::sgr::faint);
-                    faint = true;
+            // Move cursor if the line is correct and we are drawing characters
+            // in front of the cursor
+            const bool moveCursor = l == buf.cursorY && i < line.offset + buffer.getCursorX();
+
+            if (ch == '\n') {
+                if (config.renderWhitespace && config.newlineChar) {
+                    setFaint(true);
+                    terminal::bufferWrite(*config.newlineChar);
                 }
-                terminal::bufferWrite(getControlString(ch));
+                // do nothing otherwise (don't increase drawCursor)
+            } else if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
+                // If whitespace is not rendered, this will fall into "else"
+                setFaint(true);
+                terminal::bufferWrite(*config.spaceChar);
+
+                if (moveCursor)
+                    drawCursor.x++;
+            } else if (ch == '\t') {
+                const bool tabChars = config.tabStartChar || config.tabMidChar || config.tabEndChar;
+                assert(config.tabWidth > 0);
+                if (config.renderWhitespace && tabChars) {
+                    if (config.tabWidth >= 2)
+                        terminal::bufferWrite(*config.tabStartChar);
+                    for (size_t i = 0; i < config.tabWidth - 2; ++i)
+                        terminal::bufferWrite(*config.tabMidChar);
+                    terminal::bufferWrite(*config.tabEndChar);
+                } else {
+                    for (size_t i = 0; i < config.tabWidth; ++i)
+                        terminal::bufferWrite(' ');
+                }
+
+                if (moveCursor)
+                    drawCursor.x += config.tabWidth;
+            } else if (std::iscntrl(ch)) {
+                setFaint(true);
+                const auto str = getControlString(ch);
+                terminal::bufferWrite(str);
+
+                if (moveCursor)
+                    drawCursor.x += str.size();
             } else {
-                if (faint) {
-                    terminal::bufferWrite(control::sgr::resetIntensity);
-                    faint = false;
-                }
-                terminal::bufferWrite(std::string_view(&ch, 1));
+                setFaint(false);
+                terminal::bufferWrite(ch);
+
+                // Somewhat hacky, but we just don't count utf8 continuation bytes
+                if (moveCursor && (ch & 0b11000000) != 0b10000000)
+                    drawCursor.x++;
             }
         }
 
-        if (faint) {
-            terminal::bufferWrite(control::sgr::resetIntensity);
-            faint = false;
-        }
-
+        setFaint(false);
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
@@ -105,8 +127,7 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
             terminal::bufferWrite("\r\n");
     }
 
-    const auto drawCursor = getDrawCursor(buf);
-    return Vec { drawCursor.x + pos.x, drawCursor.y + pos.y };
+    return drawCursor;
 }
 
 void drawStatusBar()

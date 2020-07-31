@@ -13,6 +13,7 @@ endif()
 
 set(SRC
   buffer.cpp
+  config.cpp
   control.cpp
   editor.cpp
   main.cpp
