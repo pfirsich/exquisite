@@ -82,9 +82,8 @@ Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
         for (size_t i = line.offset; i < line.offset + line.length; ++i) {
             const auto ch = buf.text[i];
 
-            // Move cursor if the line is correct and we are drawing characters
-            // in front of the cursor
-            const bool moveCursor = cursorInLine && i < line.offset + buffer.getCursorX();
+            const bool charInFrontOfCursor = i < line.offset + buffer.getCursorX();
+            const bool moveCursor = cursorInLine && charInFrontOfCursor;
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
                 // If whitespace is not rendered, this will fall into "else"
