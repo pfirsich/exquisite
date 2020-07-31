@@ -61,42 +61,38 @@ bool Utf8Sequence::operator==(char c) const
     return length == 1 && bytes[0] == c;
 }
 
-Key::Key(const char* b, size_t l)
-    : bytes(b, b + l)
+Key::Key(const std::vector<char>& b)
+    : bytes(b)
     , ctrl(false)
     , alt(false)
-    , key(Utf8Sequence(b, l))
+    , shift(false)
+    , key(Utf8Sequence(&b[0], b.size()))
 {
 }
 
-Key::Key(const char* b, size_t l, SpecialKey k)
-    : bytes(b, b + l)
+Key::Key(const std::vector<char>& b, SpecialKey k)
+    : bytes(b)
     , ctrl(false)
     , alt(false)
+    , shift(false)
     , key(k)
 {
 }
 
-Key::Key(char b, bool c, bool a, char k)
-    : bytes { b }
+Key::Key(const std::vector<char>& b, bool c, bool a, bool s, char k)
+    : bytes(b)
     , ctrl(c)
     , alt(a)
+    , shift(s)
     , key(Utf8Sequence(k))
 {
 }
 
-Key::Key(const char* b, size_t l, bool c, bool a, char k)
-    : bytes(b, b + l)
+Key::Key(const std::vector<char>& b, bool c, bool a, bool s, SpecialKey k)
+    : bytes(b)
     , ctrl(c)
     , alt(a)
-    , key(Utf8Sequence(k))
-{
-}
-
-Key::Key(const char* b, size_t l, bool c, bool a, SpecialKey k)
-    : bytes(b, b + l)
-    , ctrl(c)
-    , alt(a)
+    , shift(s)
     , key(k)
 {
 }

@@ -101,7 +101,6 @@ bool readFile(const std::string& path)
     const auto sv = std::string_view(buf.data(), buf.size());
     editor::buffer.text.set(sv);
     editor::buffer.name = path;
-    debug("Read from file:\n", sv);
     return true;
 }
 
@@ -115,7 +114,6 @@ void readStdin()
     const auto sv = std::string_view(buf.data(), buf.size());
     editor::buffer.text.set(sv);
     editor::buffer.name = "STDIN";
-    debug("Read from tty:\n", sv);
 }
 
 editor::StatusMessage insertTextPromptCallback(std::string_view input)
@@ -138,9 +136,42 @@ editor::StatusMessage openFilePromptCallback(std::string_view input)
     return editor::getStatusMessage();
 }
 
-editor::StatusMessage saveFilePromptCallback(std::string_view /*input*/)
+editor::StatusMessage saveFilePromptCallback(std::string_view input)
 {
-    return editor::StatusMessage { "Unimplemented", editor::StatusMessage::Type::Error };
+    const auto path = std::string(input);
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f)
+        return editor::StatusMessage { "Could not open file", editor::StatusMessage::Type::Error };
+    const auto data = editor::buffer.text.getString();
+    if (fwrite(data.c_str(), 1, data.size(), f) != data.size())
+        return editor::StatusMessage { "Could not write file", editor::StatusMessage::Type::Error };
+    if (fclose(f) != 0)
+        return editor::StatusMessage { "Could not close file", editor::StatusMessage::Type::Error };
+    return editor::getStatusMessage();
+}
+
+std::unique_ptr<editor::Prompt> saveFilePrompt()
+{
+    auto ptr = std::make_unique<editor::Prompt>(
+        editor::Prompt { "Save File> ", saveFilePromptCallback });
+    ptr->input.text.set(editor::buffer.name);
+    ptr->input.cursorX = editor::buffer.name.size();
+    return ptr;
+}
+
+void debugKey(const Key& key)
+{
+    debug("key hex (", key.bytes.size(), "): ", hexString(key.bytes.data(), key.bytes.size()));
+    if (key.bytes[0] == '\x1b') {
+        debug("escape: ", std::string_view(key.bytes.data() + 1, key.bytes.size() - 1));
+    }
+    debug("ctrl: ", key.ctrl, ", alt: ", key.alt, ", shift: ", key.shift);
+
+    if (const auto special = std::get_if<SpecialKey>(&key.key)) {
+        debug("special: ", toString(*special));
+    } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
+        debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
+    }
 }
 
 void processInput(const Key& key)
@@ -148,11 +179,7 @@ void processInput(const Key& key)
     if (processBufferInput(editor::buffer, key))
         return;
 
-    debug("key hex: ", hexString(key.bytes.data(), key.bytes.size()));
-    debug("ctrl: ", key.ctrl, ", alt: ", key.alt);
-
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
-        // debug("special: ", toString(*special));
         switch (*special) {
         case SpecialKey::Return:
             editor::buffer.insert("\n" + getCurrentIndent());
@@ -161,31 +188,26 @@ void processInput(const Key& key)
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
         if (key.ctrl && !key.alt) {
-            if (*seq == 'q') {
+            switch (seq->bytes[0]) {
+            case 'q':
                 terminal::write(control::clear);
                 terminal::write(control::resetCursor);
                 exit(0);
-            }
-
-            if (*seq == 'l') {
+            case 'l':
                 editor::setStatusMessage("");
-            }
-
-            if (*seq == 'o') {
+                break;
+            case 'o':
                 editor::currentPrompt = std::make_unique<editor::Prompt>(
                     editor::Prompt { "Open File> ", openFilePromptCallback });
-            }
-
-            if (*seq == 's') {
-                editor::currentPrompt = std::make_unique<editor::Prompt>(
-                    editor::Prompt { "Save File> ", saveFilePromptCallback });
-            }
-
-            if (*seq == 'p') {
+                break;
+            case 's':
+                editor::currentPrompt = saveFilePrompt();
+                break;
+            case 'p':
                 editor::currentPrompt = std::make_unique<editor::Prompt>(
                     editor::Prompt { "Insert Text> ", insertTextPromptCallback });
+                break;
             }
         }
     } else {
@@ -195,12 +217,10 @@ void processInput(const Key& key)
 
 void processPromptInput(const Key& key)
 {
-    // debug("key hex: ", hexString(key.bytes.data(), key.bytes.size()));
     if (processBufferInput(editor::currentPrompt->input, key))
         return;
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
-        // debug("special: ", toString(*special));
         switch (*special) {
         case SpecialKey::Return:
             editor::confirmPrompt();
@@ -241,6 +261,8 @@ int main(int argc, char** argv)
         exit(1);
     }
 
+    debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<");
+
     terminal::init();
 
     editor::redraw();
@@ -248,6 +270,7 @@ int main(int argc, char** argv)
     while (true) {
         const auto key = terminal::readKey();
         if (key) {
+            debugKey(*key);
             if (editor::currentPrompt)
                 processPromptInput(*key);
             else

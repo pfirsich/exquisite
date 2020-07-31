@@ -14,76 +14,15 @@ namespace {
     std::string_view getControlString(char ch)
     {
         assert(std::iscntrl(ch));
-        switch (ch) {
-        case 0:
-            return "NUL"sv;
-        case 1:
-            return "SOH"sv;
-        case 2:
-            return "STX"sv;
-        case 3:
-            return "ETX"sv;
-        case 4:
-            return "EOT"sv;
-        case 5:
-            return "ENQ"sv;
-        case 6:
-            return "ACK"sv;
-        case 7:
-            return "BEL"sv;
-        case 8:
-            return "BS"sv;
-        case 9:
-            return "TAB"sv;
-        case 10:
-            return ""; // "LF"sv;
-        case 11:
-            return "VT"sv;
-        case 12:
-            return "FF"sv;
-        case 13:
-            return "CR"sv;
-        case 14:
-            return "SO"sv;
-        case 15:
-            return "SI"sv;
-        case 16:
-            return "DLE"sv;
-        case 17:
-            return "DC1"sv;
-        case 18:
-            return "DC2"sv;
-        case 19:
-            return "DC3"sv;
-        case 20:
-            return "DC4"sv;
-        case 21:
-            return "NAK"sv;
-        case 22:
-            return "SYN"sv;
-        case 23:
-            return "ETB"sv;
-        case 24:
-            return "CAN"sv;
-        case 25:
-            return "EM"sv;
-        case 26:
-            return "SUB"sv;
-        case 27:
-            return "ESC"sv;
-        case 28:
-            return "FS"sv;
-        case 29:
-            return "GS"sv;
-        case 30:
-            return "RS"sv;
-        case 31:
-            return "US"sv;
-        case 127:
+        static constexpr std::array<std::string_view, 32> lut { "NUL"sv, "SOH"sv, "STX"sv, "ETX"sv,
+            "EOT"sv, "ENQ"sv, "ACK"sv, "BEL"sv, "BS"sv, "TAB"sv, ""sv /*LF*/, "VT"sv, "FF"sv,
+            "CR"sv, "SO"sv, "SI"sv, "DLE"sv, "DC1"sv, "DC2"sv, "DC3"sv, "DC4"sv, "NAK"sv, "SYN"sv,
+            "ETB"sv, "CAN"sv, "EM"sv, "SUB"sv, "ESC"sv, "FS"sv, "GS"sv, "RS"sv, "US"sv };
+        if (ch > 0 && ch < 32)
+            return lut[ch];
+        if (ch == 127)
             return "DEL"sv;
-        default:
-            assert(false && "Unhandled control character");
-        }
+        assert(false && "Unhandled control character");
     }
 
     StatusMessage statusMessage;
@@ -108,7 +47,6 @@ Vec getDrawCursor(const Buffer& buffer)
                 cur.x += 1;
         }
     }
-    debug("line before cursor (", buffer.cursorX, "): ", hexString(v.data(), v.size()));
     return cur;
 }
 
@@ -122,11 +60,9 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
-    debug("pos: ", pos.x, ", ", pos.y);
 
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
-        debug("draw line ", l, " with ", line.length, " bytes");
         bool faint = false;
 
         if (l > firstLine && pos.x > 0)
@@ -158,8 +94,6 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
-        else
-            debug("don't draw newline for ", l);
     }
 
     for (size_t y = lastLine + 1; y < size.y; ++y) {
@@ -172,7 +106,6 @@ Vec drawBuffer(const Buffer& buf, const Vec& size)
     }
 
     const auto drawCursor = getDrawCursor(buf);
-    debug("drawCursor in drawBuffer: ", drawCursor.x, ", ", drawCursor.y);
     return Vec { drawCursor.x + pos.x, drawCursor.y + pos.y };
 }
 
@@ -225,7 +158,6 @@ void redraw()
         terminal::bufferWrite(control::clearLine);
     }
 
-    debug("draw cursor: ", drawCursor.x, ", ", drawCursor.y);
     terminal::bufferWrite(control::moveCursor(drawCursor));
     terminal::bufferWrite(control::showCursor);
     terminal::flushWrite();

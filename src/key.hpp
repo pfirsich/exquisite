@@ -39,11 +39,11 @@ struct Key {
     std::vector<char> bytes;
     bool ctrl;
     bool alt;
+    bool shift;
     std::variant<Utf8Sequence, SpecialKey> key;
 
-    Key(const char* bytes, size_t len); // utf8 sequence
-    Key(const char* bytes, size_t len, SpecialKey key); // special key
-    Key(char byte, bool ctrl, bool alt, char key); // other chars
-    Key(const char* bytes, size_t len, bool ctrl, bool alt, char key);
-    Key(const char* bytes, size_t len, bool ctrl, bool alt, SpecialKey key);
+    Key(const std::vector<char>& bytes); // utf8 sequence
+    Key(const std::vector<char>& bytes, SpecialKey key); // special key
+    Key(const std::vector<char>& bytes, bool ctrl, bool alt, bool shift, char key); // other chars
+    Key(const std::vector<char>& bytes, bool ctrl, bool alt, bool shift, SpecialKey key);
 };
