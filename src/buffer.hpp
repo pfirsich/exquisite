@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -43,6 +44,8 @@ private:
 
 struct Buffer {
     static constexpr auto EndOfLine = std::numeric_limits<size_t>::max();
+
+    std::string name;
 
     TextBuffer text;
 

@@ -32,4 +32,5 @@ void redraw();
 void confirmPrompt();
 void setStatusMessage(
     const std::string& message, StatusMessage::Type type = StatusMessage::Type::Normal);
+StatusMessage getStatusMessage();
 }

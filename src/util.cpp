@@ -25,3 +25,8 @@ std::string hexString(const void* data, size_t size)
     }
     return out;
 }
+
+std::unique_ptr<FILE, decltype(&fclose)> uniqueFopen(const char* path, const char* modes)
+{
+    return std::unique_ptr<FILE, decltype(&fclose)>(fopen(path, modes), &fclose);
+}

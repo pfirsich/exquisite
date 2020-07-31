@@ -185,7 +185,8 @@ void drawStatusBar()
 
     std::string status;
     status.reserve(size.x);
-    status.append(size.x - lines.size(), ' ');
+    status.append(buffer.name);
+    status.append(size.x - lines.size() - status.size(), ' ');
     status.append(lines);
 
     terminal::bufferWrite(control::sgr::invert);
@@ -241,5 +242,10 @@ void confirmPrompt()
 void setStatusMessage(const std::string& message, StatusMessage::Type type)
 {
     statusMessage = StatusMessage { message, type };
+}
+
+StatusMessage getStatusMessage()
+{
+    return statusMessage;
 }
 }

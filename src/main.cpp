@@ -88,13 +88,59 @@ std::string getCurrentIndent()
     return indent;
 }
 
-editor::StatusMessage insertTextCallback(std::string_view input)
+bool readFile(const std::string& path)
+{
+    auto f = uniqueFopen(path.c_str(), "rb");
+    if (!f)
+        return false;
+    fseek(f.get(), 0, SEEK_END);
+    const auto size = ftell(f.get());
+    fseek(f.get(), 0, SEEK_SET);
+    std::vector<char> buf(size, '\0');
+    fread(buf.data(), 1, size, f.get());
+    const auto sv = std::string_view(buf.data(), buf.size());
+    editor::buffer.text.set(sv);
+    editor::buffer.name = path;
+    debug("Read from file:\n", sv);
+    return true;
+}
+
+void readStdin()
+{
+    std::vector<char> buf;
+    char c;
+    while (read(STDIN_FILENO, &c, 1) > 0) {
+        buf.push_back(c);
+    }
+    const auto sv = std::string_view(buf.data(), buf.size());
+    editor::buffer.text.set(sv);
+    editor::buffer.name = "STDIN";
+    debug("Read from tty:\n", sv);
+}
+
+editor::StatusMessage insertTextPromptCallback(std::string_view input)
 {
     if (input.empty())
         return editor::StatusMessage { "Empty", editor::StatusMessage::Type::Error };
 
     editor::buffer.insert(input);
     return editor::StatusMessage { "" };
+}
+
+editor::StatusMessage openFilePromptCallback(std::string_view input)
+{
+    const auto path = std::string(input);
+    const auto read = readFile(path);
+    if (!read) {
+        return editor::StatusMessage { "Could not open file '" + path + "'",
+            editor::StatusMessage::Type::Error };
+    }
+    return editor::getStatusMessage();
+}
+
+editor::StatusMessage saveFilePromptCallback(std::string_view /*input*/)
+{
+    return editor::StatusMessage { "Unimplemented", editor::StatusMessage::Type::Error };
 }
 
 void processInput(const Key& key)
@@ -116,17 +162,30 @@ void processInput(const Key& key)
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
         debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
-        if (key.ctrl) {
+        if (key.ctrl && !key.alt) {
             if (*seq == 'q') {
                 terminal::write(control::clear);
                 terminal::write(control::resetCursor);
                 exit(0);
             }
 
-            if (*seq == 'p') {
-                debug("set prompt");
+            if (*seq == 'l') {
+                editor::setStatusMessage("");
+            }
+
+            if (*seq == 'o') {
                 editor::currentPrompt = std::make_unique<editor::Prompt>(
-                    editor::Prompt { "Insert Text> ", insertTextCallback });
+                    editor::Prompt { "Open File> ", openFilePromptCallback });
+            }
+
+            if (*seq == 's') {
+                editor::currentPrompt = std::make_unique<editor::Prompt>(
+                    editor::Prompt { "Save File> ", saveFilePromptCallback });
+            }
+
+            if (*seq == 'p') {
+                editor::currentPrompt = std::make_unique<editor::Prompt>(
+                    editor::Prompt { "Insert Text> ", insertTextPromptCallback });
             }
         }
     } else {
@@ -158,31 +217,6 @@ void processPromptInput(const Key& key)
     }
 }
 
-void readFile(const std::string& path)
-{
-    auto f = std::unique_ptr<FILE, decltype(&fclose)>(fopen(path.c_str(), "rb"), &fclose);
-    fseek(f.get(), 0, SEEK_END);
-    const auto size = ftell(f.get());
-    fseek(f.get(), 0, SEEK_SET);
-    std::vector<char> buf(size, '\0');
-    fread(buf.data(), 1, size, f.get());
-    const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.text.set(sv);
-    debug("Read from file:\n", sv);
-}
-
-void readStdin()
-{
-    std::vector<char> buf;
-    char c;
-    while (read(STDIN_FILENO, &c, 1) > 0) {
-        buf.push_back(c);
-    }
-    const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.text.set(sv);
-    debug("Read from tty:\n", sv);
-}
-
 void printUsage()
 {
     printf("Usage: `exquisite <file>` or `<cmd> | exquisite`\n");
@@ -192,11 +226,12 @@ int main(int argc, char** argv)
 {
     std::vector<std::string> args(argv + 1, argv + argc);
     if (args.size() > 0) {
-        readFile(args[0]);
-        editor::setStatusMessage(args[0]);
+        if (!readFile(args[0])) {
+            fprintf(stderr, "Could not open file '%s'\n", args[0].c_str());
+            exit(1);
+        }
     } else if (!isatty(STDIN_FILENO)) {
         readStdin();
-        editor::setStatusMessage("Read STDIN");
         // const int fd = dup(STDIN_FILENO);
         const int tty = open("/dev/tty", O_RDONLY);
         dup2(tty, STDIN_FILENO);
