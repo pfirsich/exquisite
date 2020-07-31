@@ -79,7 +79,8 @@ Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
             terminal::bufferWrite(control::sgr::resetInvert);
         }
 
-        for (size_t i = line.offset; i < line.offset + line.length; ++i) {
+        const auto lineEndIndex = line.offset + std::min(line.length, size.x - lineNumWidth);
+        for (size_t i = line.offset; i < lineEndIndex; ++i) {
             const auto ch = buf.text[i];
 
             const bool charInFrontOfCursor = i < line.offset + buffer.getCursorX();
@@ -125,11 +126,8 @@ Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
             }
         }
 
-        const auto newlineOffset = line.offset + line.length;
-        if (newlineOffset < buf.text.getSize()) {
-            debug("hopefully a newline: ", static_cast<int>(buf.text[newlineOffset]), "'",
-                buf.text[newlineOffset], "'");
-            assert(buf.text[newlineOffset] == '\n');
+        // The index will be < size but not \n only if we didn't draw the whole line
+        if (lineEndIndex < buf.text.getSize() && buf.text[lineEndIndex] == '\n') {
             if (config.renderWhitespace && config.newlineChar) {
                 setFaint(true);
                 terminal::bufferWrite(*config.newlineChar);
