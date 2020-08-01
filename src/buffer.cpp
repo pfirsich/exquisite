@@ -147,63 +147,95 @@ bool Cursor::emptySelection() const
     return start == end;
 }
 
-std::pair<Cursor::End, Cursor::End> Cursor::sorted() const
+bool Cursor::isOrdered() const
 {
+    // I use this function to know whether to stop start and end and I don't
+    // need to swap if they are equal.
     if (start == end)
-        return std::pair(start, end);
+        return true;
+
     if (start.y < end.y)
-        return std::pair(start, end);
+        return true;
     if (end.y < start.y)
-        return std::pair(end, start);
-    // start.y == end.y, start.x != start.x
-    if (start.x < end.x)
-        return std::pair(start, end);
-    return std::pair(end, start);
+        return false;
+
+    // start.y == end.y, start.x != end.x
+    return start.x < end.x;
 }
 
-void Cursor::setX(size_t x)
+Cursor::End Cursor::min() const
+{
+    if (isOrdered())
+        return start;
+    return end;
+}
+
+Cursor::End Cursor::max() const
+{
+    if (isOrdered())
+        return end;
+    return start;
+}
+
+void Cursor::setX(size_t x, bool select)
 {
     start.x = x;
-    end.x = x;
+    if (!select)
+        end.x = x;
 }
 
-void Cursor::setY(size_t y)
+void Cursor::setY(size_t y, bool select)
 {
     start.y = y;
-    end.y = y;
+    if (!select)
+        end.y = y;
+}
+
+void Cursor::set(const End& pos)
+{
+    start = pos;
+    end = pos;
 }
 
 ///////////////////////////////////////////// Buffer
 
 void Buffer::insert(std::string_view str)
 {
+    if (!cursor.emptySelection())
+        deleteSelection();
     assert(cursor.emptySelection());
     const auto lineCount = text.getLineCount();
     text.insert(getOffset(cursor.start), str);
     const auto newLines = text.getLineCount() - lineCount;
-    cursor.setY(cursor.start.y + newLines);
+    cursor.setY(cursor.start.y + newLines, false);
     if (newLines > 0) {
         const auto nl = str.rfind('\n');
         assert(nl != std::string_view::npos);
-        cursor.setX(str.size() - nl - 1);
+        cursor.setX(str.size() - nl - 1, false);
     } else {
-        cursor.setX(getX(cursor.start) + str.size());
+        cursor.setX(getX(cursor.start) + str.size(), false);
     }
+}
+
+void Buffer::deleteSelection()
+{
+    assert(!cursor.emptySelection());
+    text.remove(getSelection());
+    cursor.set(cursor.min());
 }
 
 void Buffer::deleteBackwards()
 {
-    assert(cursor.emptySelection());
-    // This seems like an easy solution, but really fucking dumb
-    moveCursorLeft();
-    deleteForwards();
+    if (cursor.emptySelection())
+        moveCursorLeft(true);
+    deleteSelection();
 }
 
 void Buffer::deleteForwards()
 {
-    assert(cursor.emptySelection());
-    // The cursor can stay where it is
-    text.remove(Range { getOffset(cursor.start), 1 });
+    if (cursor.emptySelection())
+        moveCursorRight(true);
+    deleteSelection();
 }
 
 size_t Buffer::getX(const Cursor::End& cursorEnd) const
@@ -217,7 +249,7 @@ size_t Buffer::getOffset(const Cursor::End& cursorEnd) const
     return text.getLine(cursorEnd.y).offset + getX(cursorEnd);
 }
 
-Range Buffer::getCursorRange() const
+Range Buffer::getSelection() const
 {
     auto startOffset = getOffset(cursor.start);
     auto endOffset = getOffset(cursor.end);
@@ -226,22 +258,26 @@ Range Buffer::getCursorRange() const
     return Range { startOffset, endOffset - startOffset };
 }
 
-void Buffer::moveCursorHome()
+void Buffer::moveCursorHome(bool select)
 {
-    assert(cursor.emptySelection());
-    cursor.setX(0);
+    cursor.setX(0, select);
 }
 
-void Buffer::moveCursorEnd()
+void Buffer::moveCursorEnd(bool select)
 {
-    assert(cursor.emptySelection());
-    cursor.setX(Cursor::EndOfLine);
+    cursor.setX(Cursor::EndOfLine, select);
 }
 
-void Buffer::moveCursorRight()
+void Buffer::moveCursorRight(bool select)
 {
-    assert(cursor.emptySelection());
     debug("move cursor right");
+
+    // This is the only combination of emptySelection and select that needs special handling
+    if (!cursor.emptySelection() && !select) {
+        cursor.set(cursor.max());
+        return;
+    }
+
     const auto line = text.getLine(cursor.start.y);
 
     // end of document
@@ -250,8 +286,8 @@ void Buffer::moveCursorRight()
 
     // Skip one newline if it's there
     if (text[line.offset + getX(cursor.start)] == '\n') {
-        moveCursorY(1);
-        cursor.setX(0);
+        moveCursorY(1, select);
+        cursor.setX(0, select);
         debug("skip newline");
         return;
     }
@@ -261,31 +297,35 @@ void Buffer::moveCursorRight()
     // multi-code unit code point
     const auto ch = text[line.offset + cursor.start.x];
     if (ch < 0) {
-        cursor.setX(cursor.start.x + utf8::getByteSequenceLength(static_cast<uint8_t>(ch)));
+        cursor.setX(cursor.start.x + utf8::getByteSequenceLength(static_cast<uint8_t>(ch)), select);
         debug("skipped utf8: cursorX = ", cursor.start.x);
         return;
     }
 
     // single code unit of utf8 or ascii
     if (cursor.start.x < line.length) {
-        cursor.setX(cursor.start.x + 1);
+        cursor.setX(cursor.start.x + 1, select);
         debug("skipped ascii: cursorX = ", cursor.start.x);
     }
 }
 
-void Buffer::moveCursorLeft()
+void Buffer::moveCursorLeft(bool select)
 {
-    assert(cursor.emptySelection());
+    if (!cursor.emptySelection() && !select) {
+        cursor.set(cursor.min());
+        return;
+    }
+
     const auto line = text.getLine(cursor.start.y);
 
     if (cursor.start.x > line.length) {
-        cursor.setX(line.length);
+        cursor.setX(line.length, select);
     }
 
     if (cursor.start.x == 0) {
         if (cursor.start.y > 0) {
-            moveCursorY(-1);
-            cursor.setX(text.getLine(cursor.start.y).length);
+            moveCursorY(-1, select);
+            cursor.setX(text.getLine(cursor.start.y).length, select);
         }
         // do nothing
         return;
@@ -296,25 +336,24 @@ void Buffer::moveCursorLeft()
         return (static_cast<uint8_t>(text[idx]) & 0b11000000) == 0b10000000;
     };
     while (cursor.start.x > 0 && isContinuation(line.offset + cursor.start.x - 1)) {
-        cursor.setX(cursor.start.x - 1);
+        cursor.setX(cursor.start.x - 1, select);
     }
 
     // First byte of a code point is either 0XXXXXXX, 110XXXXX, 1110XXXX or 11110XXX
     if (cursor.start.x > 0)
-        cursor.setX(cursor.start.x - 1);
+        cursor.setX(cursor.start.x - 1, select);
 }
 
-void Buffer::moveCursorY(int dy)
+void Buffer::moveCursorY(int dy, bool select)
 {
-    assert(cursor.emptySelection());
     debug("move cursor y ", dy);
     if (dy > 0) {
-        cursor.setY(std::min(text.getLineCount() - 1, cursor.start.y + dy));
+        cursor.setY(std::min(text.getLineCount() - 1, cursor.start.y + dy), select);
     } else if (dy < 0) {
         if (cursor.start.y >= static_cast<size_t>(-dy))
-            cursor.setY(cursor.start.y + dy);
+            cursor.setY(cursor.start.y + dy, select);
         else
-            cursor.setY(0);
+            cursor.setY(0, select);
     }
     debug("cursor: ", cursor.start.x, ", ", cursor.start.y);
 }

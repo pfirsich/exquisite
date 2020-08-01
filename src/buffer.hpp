@@ -56,9 +56,13 @@ struct Cursor {
     End end;
 
     bool emptySelection() const;
-    std::pair<End, End> sorted() const;
-    void setX(size_t x);
-    void setY(size_t y);
+    bool isOrdered() const;
+    End min() const;
+    End max() const;
+
+    void setX(size_t x, bool select);
+    void setY(size_t y, bool select);
+    void set(const End& pos);
 };
 
 struct Buffer {
@@ -73,16 +77,17 @@ struct Buffer {
     // This will return the cursorX position clamped to the line length
     size_t getX(const Cursor::End& cursorEnd) const;
     size_t getOffset(const Cursor::End& cursorEnd) const;
-    Range getCursorRange() const;
+    Range getSelection() const;
 
     void insert(std::string_view str);
+    void deleteSelection();
     void deleteBackwards();
     void deleteForwards();
 
-    void moveCursorHome();
-    void moveCursorEnd();
-    void moveCursorLeft();
-    void moveCursorRight();
-    void moveCursorY(int dy);
+    void moveCursorHome(bool select);
+    void moveCursorEnd(bool select);
+    void moveCursorLeft(bool select);
+    void moveCursorRight(bool select);
+    void moveCursorY(int dy, bool select);
     void scroll(size_t terminalHeight);
 };

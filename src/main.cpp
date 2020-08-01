@@ -19,30 +19,31 @@ bool processBufferInput(Buffer& buffer, const Key& key)
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         // debug("special: ", toString(*special));
         const auto size = terminal::getSize();
+        const bool select = key.modifiers.test(Modifiers::Shift);
         switch (*special) {
         case SpecialKey::Left:
-            buffer.moveCursorLeft();
+            buffer.moveCursorLeft(select);
             return true;
         case SpecialKey::Right:
-            buffer.moveCursorRight();
+            buffer.moveCursorRight(select);
             return true;
         case SpecialKey::Up:
-            buffer.moveCursorY(-1);
+            buffer.moveCursorY(-1, select);
             return true;
         case SpecialKey::Down:
-            buffer.moveCursorY(1);
+            buffer.moveCursorY(1, select);
             return true;
         case SpecialKey::PageUp:
-            buffer.moveCursorY(-size.y - 1);
+            buffer.moveCursorY(-size.y - 1, select);
             return true;
         case SpecialKey::PageDown:
-            buffer.moveCursorY(size.y - 1);
+            buffer.moveCursorY(size.y - 1, select);
             return true;
         case SpecialKey::Home:
-            buffer.moveCursorHome();
+            buffer.moveCursorHome(select);
             return true;
         case SpecialKey::End:
-            buffer.moveCursorEnd();
+            buffer.moveCursorEnd(select);
             return true;
         case SpecialKey::Backspace:
             buffer.deleteBackwards();
@@ -148,7 +149,7 @@ std::unique_ptr<editor::Prompt> saveFilePrompt()
     auto ptr = std::make_unique<editor::Prompt>(
         editor::Prompt { "Save File> ", saveFilePromptCallback });
     ptr->input.text.set(editor::buffer.name);
-    ptr->input.moveCursorEnd();
+    ptr->input.moveCursorEnd(false);
     return ptr;
 }
 
