@@ -72,7 +72,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
 
     TerminalState faint(control::sgr::faint, control::sgr::resetIntensity);
-    // TerminalState invert(control::sgr::invert, control::sgr::resetInvert);
+    TerminalState invert(control::sgr::invert, control::sgr::resetInvert);
 
     // Always make space for at least 3 digits
     const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
@@ -83,6 +83,8 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     const auto pos = terminal::getCursorPosition();
     auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + buf.cursor.start.y - buf.scrollY };
 
+    const auto selection = buf.getSelection();
+
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
 
@@ -92,14 +94,14 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
 
         if (showLineNumbers) {
-            terminal::bufferWrite(control::sgr::invert);
+            invert.set(true);
             terminal::bufferWrite(' '); // left margin
             const auto lineStr = std::to_string(l + 1);
             for (size_t i = 0; i < lineNumDigits - lineStr.size(); ++i)
                 terminal::bufferWrite(' ');
             terminal::bufferWrite(lineStr);
             terminal::bufferWrite(' '); // right margin
-            terminal::bufferWrite(control::sgr::resetInvert);
+            invert.set(false);
         }
 
         const auto lineEndIndex = line.offset + std::min(line.length, size.x - lineNumWidth);
@@ -108,6 +110,11 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 
             const bool charInFrontOfCursor = i < line.offset + buf.getX(buffer.cursor.start);
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
+
+            const bool selected = selection.contains(i);
+            if (selected)
+                debug("selected: ", ch);
+            invert.set(selected);
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
                 // If whitespace is not rendered, this will fall into "else"

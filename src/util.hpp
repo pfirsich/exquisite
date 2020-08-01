@@ -19,6 +19,11 @@ struct Range {
     size_t offset;
     size_t length;
 
+    bool contains(size_t index) const
+    {
+        return index >= offset && index - offset < length;
+    }
+
     auto end() const
     {
         return offset + length;

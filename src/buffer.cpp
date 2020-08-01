@@ -108,10 +108,13 @@ void TextBuffer::remove(const Range& range)
     // This function looks like shit with iterators, so I will use indices
     const auto line = getLineIndex(range.offset);
     for (size_t l = getLineCount() - 1; l > line; --l) {
-        lineOffsets_[l] -= range.length;
-        if (lineOffsets_[l] <= range.offset) {
+        // We need the second condition, because if you delete a line right until it's end,
+        // you delete the newline that makes the next line a line!
+        // So you need to delete the next line as well.
+        if (range.contains(lineOffsets_[l]) || lineOffsets_[l] == range.offset + range.length)
             lineOffsets_.erase(lineOffsets_.begin() + l);
-        }
+        else
+            lineOffsets_[l] -= range.length;
     }
     assert(checkLineOffsets());
 }
