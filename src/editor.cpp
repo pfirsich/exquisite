@@ -28,6 +28,30 @@ namespace {
         assert(false && "Unhandled control character");
     }
 
+    class TerminalState {
+    public:
+        TerminalState(std::string_view set, std::string_view unset, bool startState = false)
+            : set_(set)
+            , unset_(unset)
+            , currentState_(startState)
+        {
+        }
+
+        void set(bool state)
+        {
+            if (state && !currentState_)
+                terminal::bufferWrite(set_);
+            if (!state && currentState_)
+                terminal::bufferWrite(unset_);
+            currentState_ = state;
+        }
+
+    private:
+        std::string_view set_;
+        std::string_view unset_;
+        bool currentState_;
+    };
+
     StatusMessage statusMessage;
 }
 
@@ -47,14 +71,8 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     const auto firstLine = buf.scrollY;
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
 
-    bool faint = false;
-    auto setFaint = [&faint](bool f) {
-        if (f && !faint)
-            terminal::bufferWrite(control::sgr::faint);
-        if (!f && faint)
-            terminal::bufferWrite(control::sgr::resetIntensity);
-        faint = f;
-    };
+    TerminalState faint(control::sgr::faint, control::sgr::resetIntensity);
+    // TerminalState invert(control::sgr::invert, control::sgr::resetInvert);
 
     // Always make space for at least 3 digits
     const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
@@ -93,7 +111,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
                 // If whitespace is not rendered, this will fall into "else"
-                setFaint(true);
+                faint.set(true);
                 terminal::bufferWrite(*config.spaceChar);
 
                 if (moveCursor)
@@ -115,7 +133,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
                 if (moveCursor)
                     drawCursor.x += config.tabWidth;
             } else if (std::iscntrl(ch)) {
-                setFaint(true);
+                faint.set(true);
                 const auto str = getControlString(ch);
                 terminal::bufferWrite(str);
 
@@ -124,7 +142,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
             } else {
                 const auto len = utf8::getCodePointLength(buf.text, buf.text.getSize(), i);
 
-                setFaint(false);
+                faint.set(false);
                 for (size_t j = 0; j < len; ++j)
                     terminal::bufferWrite(buf.text[i + j]);
                 i += len - 1; // -1, because we i++ from the for loop anyway
@@ -139,12 +157,12 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
         // The index will be < size but not \n only if we didn't draw the whole line
         if (lineEndIndex < buf.text.getSize() && buf.text[lineEndIndex] == '\n') {
             if (config.renderWhitespace && config.newlineChar) {
-                setFaint(true);
+                faint.set(true);
                 terminal::bufferWrite(*config.newlineChar);
             }
         }
 
-        setFaint(false);
+        faint.set(false);
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
