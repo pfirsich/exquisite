@@ -121,7 +121,7 @@ size_t TextBuffer::getLineCount() const
     return lineOffsets_.size();
 }
 
-TextBuffer::Range TextBuffer::getLine(LineIndex idx) const
+Range TextBuffer::getLine(LineIndex idx) const
 {
     assert(idx < lineOffsets_.size());
     const auto offset = lineOffsets_[idx];
@@ -160,16 +160,16 @@ void Buffer::deleteBackwards(size_t num)
     // This seems like an easy solution, but really fucking dumb
     for (size_t i = 0; i < num; ++i)
         moveCursorLeft();
-    text.remove(TextBuffer::Range { getCursorOffset(), num });
+    text.remove(Range { getCursorOffset(), num });
 }
 
 void Buffer::deleteForwards(size_t num)
 {
     // The cursor can stay where it is
-    text.remove(TextBuffer::Range { getCursorOffset(), num });
+    text.remove(Range { getCursorOffset(), num });
 }
 
-TextBuffer::Range Buffer::getCurrentLine() const
+Range Buffer::getCurrentLine() const
 {
     assert(cursorY < text.getLineCount());
     return text.getLine(cursorY);

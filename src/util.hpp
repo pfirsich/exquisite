@@ -6,8 +6,18 @@
 #include <string_view>
 
 struct Vec {
-    // top left is 0, 0
+    // for terminal cells 0, 0 is top left
     size_t x, y;
+};
+
+struct Range {
+    size_t offset;
+    size_t length;
+
+    auto end() const
+    {
+        return offset + length;
+    }
 };
 
 [[noreturn]] void die(std::string_view msg);

@@ -4,15 +4,12 @@
 #include <string_view>
 #include <vector>
 
+#include "util.hpp"
+
 // TODO: Use a Rope: https://en.wikipedia.org/wiki/Rope_(data_structure)
 class TextBuffer {
 public:
     using LineIndex = size_t;
-
-    struct Range {
-        size_t offset;
-        size_t length;
-    };
 
     TextBuffer();
     TextBuffer(std::string_view str);
@@ -56,9 +53,10 @@ struct Buffer {
     // dependent = impossible?).
     size_t cursorX = 0;
     size_t cursorY = 0; // in lines
+
     size_t scrollY = 0; // in lines
 
-    TextBuffer::Range getCurrentLine() const;
+    Range getCurrentLine() const;
     // This will return the cursorX position clamped to the line length
     size_t getCursorX() const;
     size_t getCursorOffset() const;
