@@ -66,10 +66,11 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     // This is the only reason the buffer reference is not const!
     buf.scroll(size.y);
 
-    const auto lineCount = buf.text.getLineCount();
-    assert(buf.scrollY <= lineCount - 1);
-    const auto firstLine = buf.scrollY;
+    const auto& text = buf.getText();
+    const auto lineCount = buf.getText().getLineCount();
+    const auto firstLine = buf.getScroll();
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
+    assert(firstLine <= lineCount - 1);
 
     TerminalState faint(control::sgr::faint, control::sgr::resetIntensity);
     TerminalState invert(control::sgr::invert, control::sgr::resetInvert);
@@ -81,14 +82,15 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
-    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + buf.cursor.start.y - buf.scrollY };
+    const auto cursor = buf.getCursor().start;
+    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + cursor.y - buf.getScroll() };
 
     const auto selection = buf.getSelection();
 
     for (size_t l = firstLine; l < lastLine; ++l) {
-        const auto line = buf.text.getLine(l);
+        const auto line = text.getLine(l);
 
-        const bool cursorInLine = l == buf.cursor.start.y;
+        const bool cursorInLine = l == cursor.y;
 
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
@@ -106,9 +108,9 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 
         const auto lineEndIndex = line.offset + std::min(line.length, size.x - lineNumWidth);
         for (size_t i = line.offset; i < lineEndIndex; ++i) {
-            const auto ch = buf.text[i];
+            const auto ch = text[i];
 
-            const bool charInFrontOfCursor = i < line.offset + buf.getX(buffer.cursor.start);
+            const bool charInFrontOfCursor = i < line.offset + buf.getX(cursor);
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
 
             const bool selected = selection.contains(i);
@@ -147,11 +149,11 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
                 if (moveCursor)
                     drawCursor.x += str.size();
             } else {
-                const auto len = utf8::getCodePointLength(buf.text, buf.text.getSize(), i);
+                const auto len = utf8::getCodePointLength(text, text.getSize(), i);
 
                 faint.set(false);
                 for (size_t j = 0; j < len; ++j)
-                    terminal::bufferWrite(buf.text[i + j]);
+                    terminal::bufferWrite(text[i + j]);
                 i += len - 1; // -1, because we i++ from the for loop anyway
 
                 // Always assume each code point is one character on screen
@@ -162,7 +164,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
         }
 
         // The index will be < size but not \n only if we didn't draw the whole line
-        if (lineEndIndex < buf.text.getSize() && buf.text[lineEndIndex] == '\n') {
+        if (lineEndIndex < text.getSize() && text[lineEndIndex] == '\n') {
             if (config.renderWhitespace && config.newlineChar) {
                 faint.set(true);
                 terminal::bufferWrite(*config.newlineChar);
@@ -191,7 +193,7 @@ void drawStatusBar()
 {
     const auto size = terminal::getSize();
     std::stringstream ss;
-    ss << buffer.cursor.start.y + 1 << "/" << buffer.text.getLineCount() << ' ';
+    ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << ' ';
     const auto lines = ss.str();
 
     std::string status;
@@ -221,7 +223,7 @@ void redraw()
 
     if (currentPrompt) {
         terminal::bufferWrite(currentPrompt->prompt);
-        assert(currentPrompt->input.text.getLineCount() == 1);
+        assert(currentPrompt->input.getText().getLineCount() == 1);
         drawCursor = drawBuffer(currentPrompt->input, Vec { size.x, 1 }, false);
         terminal::bufferWrite(control::clearLine);
     } else {
@@ -246,7 +248,7 @@ void confirmPrompt()
 {
     // Move from currentPrompt first, so callback can set another prompt
     const auto prompt = std::move(currentPrompt);
-    const auto msg = prompt->callback(prompt->input.text.getString());
+    const auto msg = prompt->callback(prompt->input.getText().getString());
     setStatusMessage(msg.message, msg.type);
 }
 

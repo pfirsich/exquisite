@@ -52,8 +52,8 @@ struct Cursor {
     // a cursor without (empty) a selection will have start == end.
     // start may be after end (if you select forwards).
     // start is the end you are moving with your arrow keys.
-    End start;
-    End end;
+    End start = { 0, 0 };
+    End end = { 0, 0 };
 
     bool emptySelection() const;
     bool isOrdered() const;
@@ -65,19 +65,20 @@ struct Cursor {
     void set(const End& pos);
 };
 
-struct Buffer {
+class Buffer {
+public:
     std::string name;
 
-    TextBuffer text;
-
-    Cursor cursor;
-
-    size_t scrollY = 0; // in lines
+    const TextBuffer& getText() const;
+    const Cursor& getCursor() const;
+    size_t getScroll() const;
 
     // This will return the cursorX position clamped to the line length
     size_t getX(const Cursor::End& cursorEnd) const;
     size_t getOffset(const Cursor::End& cursorEnd) const;
     Range getSelection() const;
+
+    void setText(std::string_view str);
 
     void insert(std::string_view str);
     void deleteSelection();
@@ -90,4 +91,9 @@ struct Buffer {
     void moveCursorRight(bool select);
     void moveCursorY(int dy, bool select);
     void scroll(size_t terminalHeight);
+
+private:
+    TextBuffer text_;
+    Cursor cursor_;
+    size_t scroll_ = 0; // in lines
 };

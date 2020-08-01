@@ -70,10 +70,10 @@ std::string getCurrentIndent()
 {
     std::string indent;
     indent.reserve(32);
-    assert(editor::buffer.cursor.emptySelection());
-    const auto line = editor::buffer.text.getLine(editor::buffer.cursor.start.y);
+    assert(editor::buffer.getCursor().emptySelection());
+    const auto line = editor::buffer.getText().getLine(editor::buffer.getCursor().start.y);
     for (size_t i = line.offset; i < line.offset + line.length; ++i) {
-        const auto ch = editor::buffer.text[i];
+        const auto ch = editor::buffer.getText()[i];
         if (ch == ' ' || ch == '\t')
             indent.push_back(ch);
         else
@@ -93,7 +93,7 @@ bool readFile(const std::string& path)
     std::vector<char> buf(size, '\0');
     fread(buf.data(), 1, size, f.get());
     const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.text.set(sv);
+    editor::buffer.setText(sv);
     editor::buffer.name = path;
     return true;
 }
@@ -106,7 +106,7 @@ void readStdin()
         buf.push_back(c);
     }
     const auto sv = std::string_view(buf.data(), buf.size());
-    editor::buffer.text.set(sv);
+    editor::buffer.setText(sv);
     editor::buffer.name = "STDIN";
 }
 
@@ -136,7 +136,7 @@ editor::StatusMessage saveFilePromptCallback(std::string_view input)
     FILE* f = fopen(path.c_str(), "wb");
     if (!f)
         return editor::StatusMessage { "Could not open file", editor::StatusMessage::Type::Error };
-    const auto data = editor::buffer.text.getString();
+    const auto data = editor::buffer.getText().getString();
     if (fwrite(data.c_str(), 1, data.size(), f) != data.size())
         return editor::StatusMessage { "Could not write file", editor::StatusMessage::Type::Error };
     if (fclose(f) != 0)
@@ -148,7 +148,7 @@ std::unique_ptr<editor::Prompt> saveFilePrompt()
 {
     auto ptr = std::make_unique<editor::Prompt>(
         editor::Prompt { "Save File> ", saveFilePromptCallback });
-    ptr->input.text.set(editor::buffer.name);
+    ptr->input.setText(editor::buffer.name);
     ptr->input.moveCursorEnd(false);
     return ptr;
 }

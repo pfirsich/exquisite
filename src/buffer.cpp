@@ -202,41 +202,61 @@ void Cursor::set(const End& pos)
 
 ///////////////////////////////////////////// Buffer
 
+const TextBuffer& Buffer::getText() const
+{
+    return text_;
+}
+
+const Cursor& Buffer::getCursor() const
+{
+    return cursor_;
+}
+
+size_t Buffer::getScroll() const
+{
+    return scroll_;
+}
+
+void Buffer::setText(std::string_view str)
+{
+    text_.set(str);
+}
+
 void Buffer::insert(std::string_view str)
 {
-    if (!cursor.emptySelection())
+    if (!cursor_.emptySelection())
         deleteSelection();
-    assert(cursor.emptySelection());
-    const auto lineCount = text.getLineCount();
-    text.insert(getOffset(cursor.start), str);
-    const auto newLines = text.getLineCount() - lineCount;
-    cursor.setY(cursor.start.y + newLines, false);
+    assert(cursor_.emptySelection());
+    const auto lineCount = text_.getLineCount();
+    text_.insert(getOffset(cursor_.start), str);
+    const auto newLines = text_.getLineCount() - lineCount;
+    cursor_.setY(cursor_.start.y + newLines, false);
     if (newLines > 0) {
         const auto nl = str.rfind('\n');
         assert(nl != std::string_view::npos);
-        cursor.setX(str.size() - nl - 1, false);
+        cursor_.setX(str.size() - nl - 1, false);
     } else {
-        cursor.setX(getX(cursor.start) + str.size(), false);
+        cursor_.setX(getX(cursor_.start) + str.size(), false);
     }
 }
 
 void Buffer::deleteSelection()
 {
-    assert(!cursor.emptySelection());
-    text.remove(getSelection());
-    cursor.set(cursor.min());
+    assert(!cursor_.emptySelection());
+    text_.remove(getSelection());
+    cursor_.set(cursor_.min());
 }
 
 void Buffer::deleteBackwards()
 {
-    if (cursor.emptySelection())
+    if (cursor_.emptySelection())
         moveCursorLeft(true);
     deleteSelection();
 }
 
 void Buffer::deleteForwards()
 {
-    if (cursor.emptySelection())
+    if (cursor_.emptySelection())
         moveCursorRight(true);
     deleteSelection();
 }
@@ -244,18 +264,18 @@ void Buffer::deleteForwards()
 size_t Buffer::getX(const Cursor::End& cursorEnd) const
 {
     // Treat cursor past the end of the line as positioned at the end of the line
-    return std::min(text.getLine(cursorEnd.y).length, cursorEnd.x);
+    return std::min(text_.getLine(cursorEnd.y).length, cursorEnd.x);
 }
 
 size_t Buffer::getOffset(const Cursor::End& cursorEnd) const
 {
-    return text.getLine(cursorEnd.y).offset + getX(cursorEnd);
+    return text_.getLine(cursorEnd.y).offset + getX(cursorEnd);
 }
 
 Range Buffer::getSelection() const
 {
-    auto startOffset = getOffset(cursor.start);
-    auto endOffset = getOffset(cursor.end);
+    auto startOffset = getOffset(cursor_.start);
+    auto endOffset = getOffset(cursor_.end);
     if (endOffset < startOffset)
         std::swap(startOffset, endOffset);
     return Range { startOffset, endOffset - startOffset };
@@ -263,12 +283,12 @@ Range Buffer::getSelection() const
 
 void Buffer::moveCursorHome(bool select)
 {
-    cursor.setX(0, select);
+    cursor_.setX(0, select);
 }
 
 void Buffer::moveCursorEnd(bool select)
 {
-    cursor.setX(Cursor::EndOfLine, select);
+    cursor_.setX(Cursor::EndOfLine, select);
 }
 
 void Buffer::moveCursorRight(bool select)
@@ -276,61 +296,61 @@ void Buffer::moveCursorRight(bool select)
     debug("move cursor right");
 
     // This is the only combination of emptySelection and select that needs special handling
-    if (!cursor.emptySelection() && !select) {
-        cursor.set(cursor.max());
+    if (!cursor_.emptySelection() && !select) {
+        cursor_.set(cursor_.max());
         return;
     }
 
-    const auto line = text.getLine(cursor.start.y);
+    const auto line = text_.getLine(cursor_.start.y);
 
     // end of document
-    if (cursor.start.y == text.getLineCount() - 1 && cursor.start.x == line.length - 1)
+    if (cursor_.start.y == text_.getLineCount() - 1 && cursor_.start.x == line.length - 1)
         return;
 
     // Skip one newline if it's there
-    if (text[line.offset + getX(cursor.start)] == '\n') {
+    if (text_[line.offset + getX(cursor_.start)] == '\n') {
         moveCursorY(1, select);
-        cursor.setX(0, select);
+        cursor_.setX(0, select);
         debug("skip newline");
         return;
     }
     // If cursorX > line.length the condition above should have been true
-    assert(cursor.start.x <= line.length);
+    assert(cursor_.start.x <= line.length);
 
     // multi-byte code point
-    const auto ch = text[line.offset + cursor.start.x];
+    const auto ch = text_[line.offset + cursor_.start.x];
     if (!utf8::isAscii(ch)) {
         const auto cpLen
-            = utf8::getCodePointLength(text, text.getSize(), line.offset + cursor.start.x);
-        cursor.setX(cursor.start.x + cpLen, select);
-        debug("skipped utf8: cursorX = ", cursor.start.x);
+            = utf8::getCodePointLength(text_, text_.getSize(), line.offset + cursor_.start.x);
+        cursor_.setX(cursor_.start.x + cpLen, select);
+        debug("skipped utf8: cursorX = ", cursor_.start.x);
         return;
     }
 
     // single code unit of utf8 or ascii
-    if (cursor.start.x < line.length) {
-        cursor.setX(cursor.start.x + 1, select);
-        debug("skipped ascii: cursorX = ", cursor.start.x);
+    if (cursor_.start.x < line.length) {
+        cursor_.setX(cursor_.start.x + 1, select);
+        debug("skipped ascii: cursorX = ", cursor_.start.x);
     }
 }
 
 void Buffer::moveCursorLeft(bool select)
 {
-    if (!cursor.emptySelection() && !select) {
-        cursor.set(cursor.min());
+    if (!cursor_.emptySelection() && !select) {
+        cursor_.set(cursor_.min());
         return;
     }
 
-    const auto line = text.getLine(cursor.start.y);
+    const auto line = text_.getLine(cursor_.start.y);
 
-    if (cursor.start.x > line.length) {
-        cursor.setX(line.length, select);
+    if (cursor_.start.x > line.length) {
+        cursor_.setX(line.length, select);
     }
 
-    if (cursor.start.x == 0) {
-        if (cursor.start.y > 0) {
+    if (cursor_.start.x == 0) {
+        if (cursor_.start.y > 0) {
             moveCursorY(-1, select);
-            cursor.setX(text.getLine(cursor.start.y).length, select);
+            cursor_.setX(text_.getLine(cursor_.start.y).length, select);
         }
         // do nothing
         return;
@@ -338,35 +358,35 @@ void Buffer::moveCursorLeft(bool select)
 
     // Skip all utf8 continuation bytes (0xb10XXXXXX)
     auto isContinuation = [this](size_t idx) {
-        return (static_cast<uint8_t>(text[idx]) & 0b11000000) == 0b10000000;
+        return (static_cast<uint8_t>(text_[idx]) & 0b11000000) == 0b10000000;
     };
-    while (cursor.start.x > 0 && isContinuation(line.offset + cursor.start.x - 1)) {
-        cursor.setX(cursor.start.x - 1, select);
+    while (cursor_.start.x > 0 && isContinuation(line.offset + cursor_.start.x - 1)) {
+        cursor_.setX(cursor_.start.x - 1, select);
     }
 
     // First byte of a code point is either 0XXXXXXX, 110XXXXX, 1110XXXX or 11110XXX
-    if (cursor.start.x > 0)
-        cursor.setX(cursor.start.x - 1, select);
+    if (cursor_.start.x > 0)
+        cursor_.setX(cursor_.start.x - 1, select);
 }
 
 void Buffer::moveCursorY(int dy, bool select)
 {
     debug("move cursor y ", dy);
     if (dy > 0) {
-        cursor.setY(std::min(text.getLineCount() - 1, cursor.start.y + dy), select);
+        cursor_.setY(std::min(text_.getLineCount() - 1, cursor_.start.y + dy), select);
     } else if (dy < 0) {
-        if (cursor.start.y >= static_cast<size_t>(-dy))
-            cursor.setY(cursor.start.y + dy, select);
+        if (cursor_.start.y >= static_cast<size_t>(-dy))
+            cursor_.setY(cursor_.start.y + dy, select);
         else
-            cursor.setY(0, select);
+            cursor_.setY(0, select);
     }
-    debug("cursor: ", cursor.start.x, ", ", cursor.start.y);
+    debug("cursor: ", cursor_.start.x, ", ", cursor_.start.y);
 }
 
 void Buffer::scroll(size_t terminalHeight)
 {
-    if (cursor.start.y < scrollY)
-        scrollY = cursor.start.y;
-    else if (cursor.start.y - scrollY > terminalHeight)
-        scrollY = std::min(text.getLineCount() - 1, cursor.start.y - terminalHeight);
+    if (cursor_.start.y < scroll_)
+        scroll_ = cursor_.start.y;
+    else if (cursor_.start.y - scroll_ > terminalHeight)
+        scroll_ = std::min(text_.getLineCount() - 1, cursor_.start.y - terminalHeight);
 }
