@@ -156,10 +156,10 @@ std::optional<Key> readKey()
 
     // probably utf8 code unit
     if (ch < 0) {
-        const auto seqLength = utf8::getByteSequenceLength(static_cast<uint8_t>(ch));
+        const auto seqLength = utf8::getCodePointLength(ch);
         seq.resize(seqLength, '\0');
         if (read(STDIN_FILENO, &seq[1], seqLength - 1) != static_cast<int>(seqLength) - 1)
-            die("Read incomplete utf8 code point from terminal");
+            return std::nullopt;
         return Key(seq);
     }
 

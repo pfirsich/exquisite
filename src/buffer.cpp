@@ -294,10 +294,12 @@ void Buffer::moveCursorRight(bool select)
     // If cursorX > line.length the condition above should have been true
     assert(cursor.start.x <= line.length);
 
-    // multi-code unit code point
+    // multi-byte code point
     const auto ch = text[line.offset + cursor.start.x];
-    if (ch < 0) {
-        cursor.setX(cursor.start.x + utf8::getByteSequenceLength(static_cast<uint8_t>(ch)), select);
+    if (!utf8::isAscii(ch)) {
+        const auto cpLen
+            = utf8::getCodePointLength(text, text.getSize(), line.offset + cursor.start.x);
+        cursor.setX(cursor.start.x + cpLen, select);
         debug("skipped utf8: cursorX = ", cursor.start.x);
         return;
     }

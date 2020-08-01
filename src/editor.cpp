@@ -10,6 +10,7 @@ using namespace std::literals;
 #include "control.hpp"
 #include "debug.hpp"
 #include "terminal.hpp"
+#include "utf8.hpp"
 
 namespace editor {
 namespace {
@@ -121,11 +122,16 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
                 if (moveCursor)
                     drawCursor.x += str.size();
             } else {
-                setFaint(false);
-                terminal::bufferWrite(ch);
+                const auto len = utf8::getCodePointLength(buf.text, buf.text.getSize(), i);
 
-                // Somewhat hacky, but we just don't count utf8 continuation bytes
-                if (moveCursor && (ch & 0b11000000) != 0b10000000)
+                setFaint(false);
+                for (size_t j = 0; j < len; ++j)
+                    terminal::bufferWrite(buf.text[i + j]);
+                i += len - 1; // -1, because we i++ from the for loop anyway
+
+                // Always assume each code point is one character on screen
+                // This is probably wrong for a lot of stuff (emojis and such), but what can I do?
+                if (moveCursor)
                     drawCursor.x++;
             }
         }
