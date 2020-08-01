@@ -8,6 +8,11 @@
 struct Vec {
     // for terminal cells 0, 0 is top left
     size_t x, y;
+
+    bool operator==(const Vec& other) const
+    {
+        return x == other.x && y == other.y;
+    }
 };
 
 struct Range {

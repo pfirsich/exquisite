@@ -39,32 +39,48 @@ private:
     std::vector<size_t> lineOffsets_;
 };
 
-struct Buffer {
+// Cursor::x will be considered to be at the end of the line if it exceeds the line's length.
+// It is not clamped to the line length, so the x position is retained when moving up/down.
+// It is in bytes from the start of the line, but always at the start of a code point.
+// It would be nicer if it was at the start of a glyph/grapheme, but that is hard (maybe font
+// dependent = impossible?).
+struct Cursor {
     static constexpr auto EndOfLine = std::numeric_limits<size_t>::max();
+    using End = Vec;
 
+    // start/end contain the start/end of a selection respectively
+    // a cursor without (empty) a selection will have start == end.
+    // start may be after end (if you select forwards).
+    // start is the end you are moving with your arrow keys.
+    End start;
+    End end;
+
+    bool emptySelection() const;
+    std::pair<End, End> sorted() const;
+    void setX(size_t x);
+    void setY(size_t y);
+};
+
+struct Buffer {
     std::string name;
 
     TextBuffer text;
 
-    // cursorX will be considered to be at the end of the line if it exceeds the line's length.
-    // It is not clamped to the line length, so the x position is retained when moving up/down.
-    // It is in bytes from the start of the line, but always at the start of a code point.
-    // It would be nicer if it was at the start of a glyph/grapheme, but that is hard (maybe font
-    // dependent = impossible?).
-    size_t cursorX = 0;
-    size_t cursorY = 0; // in lines
+    Cursor cursor;
 
     size_t scrollY = 0; // in lines
 
-    Range getCurrentLine() const;
     // This will return the cursorX position clamped to the line length
-    size_t getCursorX() const;
-    size_t getCursorOffset() const;
+    size_t getX(const Cursor::End& cursorEnd) const;
+    size_t getOffset(const Cursor::End& cursorEnd) const;
+    Range getCursorRange() const;
 
     void insert(std::string_view str);
-    void deleteBackwards(size_t num);
-    void deleteForwards(size_t num);
+    void deleteBackwards();
+    void deleteForwards();
 
+    void moveCursorHome();
+    void moveCursorEnd();
     void moveCursorLeft();
     void moveCursorRight();
     void moveCursorY(int dy);

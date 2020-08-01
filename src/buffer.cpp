@@ -140,125 +140,189 @@ TextBuffer::LineIndex TextBuffer::getLineIndex(size_t offset) const
     return lineOffsets_.size() - 1;
 }
 
+///////////////////////////////////////////// Cursor
+
+bool Cursor::emptySelection() const
+{
+    return start == end;
+}
+
+std::pair<Cursor::End, Cursor::End> Cursor::sorted() const
+{
+    if (start == end)
+        return std::pair(start, end);
+    if (start.y < end.y)
+        return std::pair(start, end);
+    if (end.y < start.y)
+        return std::pair(end, start);
+    // start.y == end.y, start.x != start.x
+    if (start.x < end.x)
+        return std::pair(start, end);
+    return std::pair(end, start);
+}
+
+void Cursor::setX(size_t x)
+{
+    start.x = x;
+    end.x = x;
+}
+
+void Cursor::setY(size_t y)
+{
+    start.y = y;
+    end.y = y;
+}
+
+///////////////////////////////////////////// Buffer
+
 void Buffer::insert(std::string_view str)
 {
+    assert(cursor.emptySelection());
     const auto lineCount = text.getLineCount();
-    text.insert(getCursorOffset(), str);
+    text.insert(getOffset(cursor.start), str);
     const auto newLines = text.getLineCount() - lineCount;
-    cursorY += newLines;
+    cursor.setY(cursor.start.y + newLines);
     if (newLines > 0) {
         const auto nl = str.rfind('\n');
         assert(nl != std::string_view::npos);
-        cursorX = str.size() - nl - 1;
+        cursor.setX(str.size() - nl - 1);
     } else {
-        cursorX = getCursorX() + str.size();
+        cursor.setX(getX(cursor.start) + str.size());
     }
 }
 
-void Buffer::deleteBackwards(size_t num)
+void Buffer::deleteBackwards()
 {
+    assert(cursor.emptySelection());
     // This seems like an easy solution, but really fucking dumb
-    for (size_t i = 0; i < num; ++i)
-        moveCursorLeft();
-    text.remove(Range { getCursorOffset(), num });
+    moveCursorLeft();
+    deleteForwards();
 }
 
-void Buffer::deleteForwards(size_t num)
+void Buffer::deleteForwards()
 {
+    assert(cursor.emptySelection());
     // The cursor can stay where it is
-    text.remove(Range { getCursorOffset(), num });
+    text.remove(Range { getOffset(cursor.start), 1 });
 }
 
-Range Buffer::getCurrentLine() const
-{
-    assert(cursorY < text.getLineCount());
-    return text.getLine(cursorY);
-}
-
-size_t Buffer::getCursorX() const
+size_t Buffer::getX(const Cursor::End& cursorEnd) const
 {
     // Treat cursor past the end of the line as positioned at the end of the line
-    return std::min(getCurrentLine().length, cursorX);
+    return std::min(text.getLine(cursorEnd.y).length, cursorEnd.x);
 }
 
-size_t Buffer::getCursorOffset() const
+size_t Buffer::getOffset(const Cursor::End& cursorEnd) const
 {
-    return getCurrentLine().offset + getCursorX();
+    return text.getLine(cursorEnd.y).offset + getX(cursorEnd);
+}
+
+Range Buffer::getCursorRange() const
+{
+    auto startOffset = getOffset(cursor.start);
+    auto endOffset = getOffset(cursor.end);
+    if (endOffset < startOffset)
+        std::swap(startOffset, endOffset);
+    return Range { startOffset, endOffset - startOffset };
+}
+
+void Buffer::moveCursorHome()
+{
+    assert(cursor.emptySelection());
+    cursor.setX(0);
+}
+
+void Buffer::moveCursorEnd()
+{
+    assert(cursor.emptySelection());
+    cursor.setX(Cursor::EndOfLine);
 }
 
 void Buffer::moveCursorRight()
 {
+    assert(cursor.emptySelection());
     debug("move cursor right");
-    const auto line = getCurrentLine();
+    const auto line = text.getLine(cursor.start.y);
+
+    // end of document
+    if (cursor.start.y == text.getLineCount() - 1 && cursor.start.x == line.length - 1)
+        return;
 
     // Skip one newline if it's there
-    if (text[line.offset + getCursorX()] == '\n') {
+    if (text[line.offset + getX(cursor.start)] == '\n') {
         moveCursorY(1);
-        cursorX = 0;
+        cursor.setX(0);
         debug("skip newline");
         return;
     }
     // If cursorX > line.length the condition above should have been true
-    assert(cursorX <= line.length);
+    assert(cursor.start.x <= line.length);
 
     // multi-code unit code point
-    const auto ch = text[line.offset + cursorX];
+    const auto ch = text[line.offset + cursor.start.x];
     if (ch < 0) {
-        cursorX += utf8::getByteSequenceLength(static_cast<uint8_t>(ch));
-        debug("skipped utf8: cursorX = ", cursorX);
+        cursor.setX(cursor.start.x + utf8::getByteSequenceLength(static_cast<uint8_t>(ch)));
+        debug("skipped utf8: cursorX = ", cursor.start.x);
         return;
     }
 
     // single code unit of utf8 or ascii
-    if (cursorX < line.length)
-        cursorX++;
-    debug("skipped ascii: cursorX = ", cursorX);
+    if (cursor.start.x < line.length) {
+        cursor.setX(cursor.start.x + 1);
+        debug("skipped ascii: cursorX = ", cursor.start.x);
+    }
 }
 
 void Buffer::moveCursorLeft()
 {
-    const auto line = getCurrentLine();
+    assert(cursor.emptySelection());
+    const auto line = text.getLine(cursor.start.y);
 
-    if (cursorX > line.length)
-        cursorX = line.length;
+    if (cursor.start.x > line.length) {
+        cursor.setX(line.length);
+    }
 
-    if (cursorX == 0) {
-        if (cursorY > 0) {
+    if (cursor.start.x == 0) {
+        if (cursor.start.y > 0) {
             moveCursorY(-1);
-            cursorX = text.getLine(cursorY).length;
+            cursor.setX(text.getLine(cursor.start.y).length);
         }
         // do nothing
         return;
     }
 
     // Skip all utf8 continuation bytes (0xb10XXXXXX)
-    while (cursorX > 0
-        && (static_cast<uint8_t>(text[line.offset + cursorX - 1]) & 0b11000000) == 0b10000000)
-        cursorX--;
+    auto isContinuation = [this](size_t idx) {
+        return (static_cast<uint8_t>(text[idx]) & 0b11000000) == 0b10000000;
+    };
+    while (cursor.start.x > 0 && isContinuation(line.offset + cursor.start.x - 1)) {
+        cursor.setX(cursor.start.x - 1);
+    }
 
     // First byte of a code point is either 0XXXXXXX, 110XXXXX, 1110XXXX or 11110XXX
-    if (cursorX > 0)
-        cursorX--;
+    if (cursor.start.x > 0)
+        cursor.setX(cursor.start.x - 1);
 }
 
 void Buffer::moveCursorY(int dy)
 {
+    assert(cursor.emptySelection());
     debug("move cursor y ", dy);
     if (dy > 0) {
-        cursorY = std::min(text.getLineCount() - 1, cursorY + dy);
+        cursor.setY(std::min(text.getLineCount() - 1, cursor.start.y + dy));
     } else if (dy < 0) {
-        if (cursorY >= static_cast<size_t>(-dy))
-            cursorY += dy;
+        if (cursor.start.y >= static_cast<size_t>(-dy))
+            cursor.setY(cursor.start.y + dy);
         else
-            cursorY = 0;
+            cursor.setY(0);
     }
-    debug("cursor: ", cursorX, ", ", cursorY);
+    debug("cursor: ", cursor.start.x, ", ", cursor.start.y);
 }
 
 void Buffer::scroll(size_t terminalHeight)
 {
-    if (cursorY < scrollY)
-        scrollY = cursorY;
-    else if (cursorY - scrollY > terminalHeight)
-        scrollY = std::min(text.getLineCount() - 1, cursorY - terminalHeight);
+    if (cursor.start.y < scrollY)
+        scrollY = cursor.start.y;
+    else if (cursor.start.y - scrollY > terminalHeight)
+        scrollY = std::min(text.getLineCount() - 1, cursor.start.y - terminalHeight);
 }

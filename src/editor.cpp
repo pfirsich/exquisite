@@ -33,9 +33,13 @@ namespace {
 Buffer buffer;
 std::unique_ptr<Prompt> currentPrompt;
 
-Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
+Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 {
     terminal::bufferWrite(control::sgr::reset);
+
+    // It kinda sucks to scroll in a draw function, but only here do we know the actual view size
+    // This is the only reason the buffer reference is not const!
+    buf.scroll(size.y);
 
     const auto lineCount = buf.text.getLineCount();
     assert(buf.scrollY <= lineCount - 1);
@@ -58,12 +62,12 @@ Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
 
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
-    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + buf.cursorY - buf.scrollY };
+    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + buf.cursor.start.y - buf.scrollY };
 
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = buf.text.getLine(l);
 
-        const bool cursorInLine = l == buf.cursorY;
+        const bool cursorInLine = l == buf.cursor.start.y;
 
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
@@ -83,7 +87,7 @@ Vec drawBuffer(const Buffer& buf, const Vec& size, bool showLineNumbers)
         for (size_t i = line.offset; i < lineEndIndex; ++i) {
             const auto ch = buf.text[i];
 
-            const bool charInFrontOfCursor = i < line.offset + buffer.getCursorX();
+            const bool charInFrontOfCursor = i < line.offset + buf.getX(buffer.cursor.start);
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
@@ -156,7 +160,7 @@ void drawStatusBar()
 {
     const auto size = terminal::getSize();
     std::stringstream ss;
-    ss << buffer.cursorY + 1 << "/" << buffer.text.getLineCount() << ' ';
+    ss << buffer.cursor.start.y + 1 << "/" << buffer.text.getLineCount() << ' ';
     const auto lines = ss.str();
 
     std::string status;

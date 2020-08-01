@@ -22,41 +22,33 @@ bool processBufferInput(Buffer& buffer, const Key& key)
         switch (*special) {
         case SpecialKey::Left:
             buffer.moveCursorLeft();
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::Right:
             buffer.moveCursorRight();
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::Up:
             buffer.moveCursorY(-1);
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::Down:
             buffer.moveCursorY(1);
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::PageUp:
             buffer.moveCursorY(-size.y - 1);
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::PageDown:
             buffer.moveCursorY(size.y - 1);
-            buffer.scroll(size.y);
             return true;
         case SpecialKey::Home:
-            buffer.cursorX = 0;
-            buffer.scroll(size.y);
+            buffer.moveCursorHome();
             return true;
         case SpecialKey::End:
-            buffer.cursorX = Buffer::EndOfLine;
-            buffer.scroll(size.y);
+            buffer.moveCursorEnd();
             return true;
         case SpecialKey::Backspace:
-            buffer.deleteBackwards(1);
+            buffer.deleteBackwards();
             return true;
         case SpecialKey::Delete:
-            buffer.deleteForwards(1);
+            buffer.deleteForwards();
             return true;
         default:
             return false;
@@ -77,7 +69,8 @@ std::string getCurrentIndent()
 {
     std::string indent;
     indent.reserve(32);
-    const auto line = editor::buffer.getCurrentLine();
+    assert(editor::buffer.cursor.emptySelection());
+    const auto line = editor::buffer.text.getLine(editor::buffer.cursor.start.y);
     for (size_t i = line.offset; i < line.offset + line.length; ++i) {
         const auto ch = editor::buffer.text[i];
         if (ch == ' ' || ch == '\t')
@@ -155,7 +148,7 @@ std::unique_ptr<editor::Prompt> saveFilePrompt()
     auto ptr = std::make_unique<editor::Prompt>(
         editor::Prompt { "Save File> ", saveFilePromptCallback });
     ptr->input.text.set(editor::buffer.name);
-    ptr->input.cursorX = editor::buffer.name.size();
+    ptr->input.moveCursorEnd();
     return ptr;
 }
 
