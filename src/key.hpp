@@ -4,6 +4,8 @@
 #include <variant>
 #include <vector>
 
+#include "bitmask.hpp"
+
 enum class SpecialKey {
     Tab,
     Return,
@@ -36,14 +38,19 @@ struct Utf8Sequence {
 };
 
 struct Key {
+    enum class Modifiers { Ctrl, Alt, Shift };
+
     std::vector<char> bytes;
-    bool ctrl;
-    bool alt;
-    bool shift;
+    Bitmask<Modifiers> modifiers;
     std::variant<Utf8Sequence, SpecialKey> key;
 
     Key(const std::vector<char>& bytes); // utf8 sequence
     Key(const std::vector<char>& bytes, SpecialKey key); // special key
-    Key(const std::vector<char>& bytes, bool ctrl, bool alt, bool shift, char key); // other chars
-    Key(const std::vector<char>& bytes, bool ctrl, bool alt, bool shift, SpecialKey key);
+    Key(const std::vector<char>& bytes, Bitmask<Modifiers> modifiers, SpecialKey key);
+    Key(const std::vector<char>& bytes, char key); // other chars
+    Key(const std::vector<char>& bytes, Bitmask<Modifiers> modifiers, char key);
+};
+
+template <>
+struct BitmaskEnabled<Key::Modifiers> : std::true_type {
 };

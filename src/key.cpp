@@ -63,36 +63,35 @@ bool Utf8Sequence::operator==(char c) const
 
 Key::Key(const std::vector<char>& b)
     : bytes(b)
-    , ctrl(false)
-    , alt(false)
-    , shift(false)
+    , modifiers()
     , key(Utf8Sequence(&b[0], b.size()))
 {
 }
 
 Key::Key(const std::vector<char>& b, SpecialKey k)
     : bytes(b)
-    , ctrl(false)
-    , alt(false)
-    , shift(false)
+    , modifiers()
     , key(k)
 {
 }
 
-Key::Key(const std::vector<char>& b, bool c, bool a, bool s, char k)
+Key::Key(const std::vector<char>& b, Bitmask<Modifiers> m, SpecialKey k)
     : bytes(b)
-    , ctrl(c)
-    , alt(a)
-    , shift(s)
+    , modifiers(m)
+    , key(k)
+{
+}
+
+Key::Key(const std::vector<char>& b, char k)
+    : bytes(b)
+    , modifiers()
     , key(Utf8Sequence(k))
 {
 }
 
-Key::Key(const std::vector<char>& b, bool c, bool a, bool s, SpecialKey k)
+Key::Key(const std::vector<char>& b, Bitmask<Modifiers> m, char k)
     : bytes(b)
-    , ctrl(c)
-    , alt(a)
-    , shift(s)
-    , key(k)
+    , modifiers(m)
+    , key(Utf8Sequence(k))
 {
 }

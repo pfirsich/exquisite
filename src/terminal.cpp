@@ -215,13 +215,17 @@ std::optional<Key> readKey()
                     }
 
                     if (seq[4] >= '2' && seq[4] <= '6') {
-                        const bool ctrl = seq[4] == '5' || seq[4] == '6';
-                        const bool alt = seq[4] == '3' || seq[4] == '4';
-                        const bool shift = seq[4] == '2' || seq[4] == '4' || seq[4] == '6';
+                        decltype(Key::modifiers) modifiers;
+                        if (seq[4] == '5' || seq[4] == '6')
+                            modifiers.set(Key::Modifiers::Ctrl);
+                        if (seq[4] == '3' || seq[4] == '4')
+                            modifiers.set(Key::Modifiers::Alt);
+                        if (seq[4] == '2' || seq[4] == '4' || seq[4] == '6')
+                            modifiers.set(Key::Modifiers::Shift);
 
                         const auto movementKey = getMovementKey(seq[5]);
                         if (movementKey)
-                            return Key(seq, ctrl, alt, shift, *movementKey);
+                            return Key(seq, modifiers, *movementKey);
                     }
                 }
             } else {
@@ -234,7 +238,7 @@ std::optional<Key> readKey()
             return Key(seq, SpecialKey::Escape);
         } else if (seq[1] == 'O') {
             if (read(STDIN_FILENO, &ch, 1) != 1)
-                return Key(seq, false, true, false, 'O');
+                return Key(seq, Key::Modifiers::Alt, 'O');
             seq.push_back(ch);
 
             switch (seq[2]) {
@@ -249,13 +253,13 @@ std::optional<Key> readKey()
             readAll(seq);
             return Key(seq, SpecialKey::Escape);
         } else if (seq[1] == 13) {
-            return Key(seq, false, true, false, SpecialKey::Return);
+            return Key(seq, Key::Modifiers::Alt, SpecialKey::Return);
         } else if (seq[1] > 0 && seq[1] < 27) {
-            return Key(seq, true, true, false, seq[1] - 1 + 'a');
+            return Key(seq, Key::Modifiers::Ctrl | Key::Modifiers::Alt, seq[1] - 1 + 'a');
         } else if (seq[1] == 127) {
-            return Key(seq, false, true, false, SpecialKey::Backspace);
+            return Key(seq, Key::Modifiers::Alt, SpecialKey::Backspace);
         } else {
-            return Key(seq, false, true, false, seq[1]);
+            return Key(seq, Key::Modifiers::Alt, seq[1]);
         }
     }
 
@@ -263,9 +267,9 @@ std::optional<Key> readKey()
         return Key(seq, SpecialKey::Backspace);
 
     if (seq[0] > 0 && seq[0] < 27)
-        return Key(seq, true, false, false, seq[0] - 1 + 'a');
+        return Key(seq, Key::Modifiers::Ctrl, seq[0] - 1 + 'a');
 
-    return Key(seq, false, false, false, seq[0]);
+    return Key(seq, seq[0]);
 }
 
 void write(std::string_view str)

@@ -63,7 +63,7 @@ bool processBufferInput(Buffer& buffer, const Key& key)
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
         // debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
-        if (!key.ctrl) {
+        if (!key.modifiers.test(Key::Modifiers::Ctrl)) {
             buffer.insert(std::string_view(&seq->bytes[0], seq->length));
             return true;
         }
@@ -165,7 +165,9 @@ void debugKey(const Key& key)
     if (key.bytes[0] == '\x1b') {
         debug("escape: ", std::string_view(key.bytes.data() + 1, key.bytes.size() - 1));
     }
-    debug("ctrl: ", key.ctrl, ", alt: ", key.alt, ", shift: ", key.shift);
+    debug("ctrl: ", key.modifiers.test(Key::Modifiers::Ctrl),
+        ", alt: ", key.modifiers.test(Key::Modifiers::Alt),
+        ", shift: ", key.modifiers.test(Key::Modifiers::Shift));
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         debug("special: ", toString(*special));
@@ -188,7 +190,7 @@ void processInput(const Key& key)
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        if (key.ctrl && !key.alt) {
+        if (key.modifiers.test(Key::Modifiers::Ctrl) && !key.modifiers.test(Key::Modifiers::Alt)) {
             switch (seq->bytes[0]) {
             case 'q':
                 terminal::write(control::clear);
