@@ -37,9 +37,9 @@ struct Utf8Sequence {
     bool operator==(char c) const;
 };
 
-struct Key {
-    enum class Modifiers { Ctrl, Alt, Shift };
+enum class Modifiers { Ctrl, Alt, Shift };
 
+struct Key {
     std::vector<char> bytes;
     Bitmask<Modifiers> modifiers;
     std::variant<Utf8Sequence, SpecialKey> key;
@@ -52,5 +52,5 @@ struct Key {
 };
 
 template <>
-struct BitmaskEnabled<Key::Modifiers> : std::true_type {
+struct BitmaskEnabled<Modifiers> : std::true_type {
 };
