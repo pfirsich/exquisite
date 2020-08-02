@@ -6,30 +6,44 @@
 template <typename Action>
 class ActionStack {
 public:
-    template <typename... Args>
-    void perform(Args&&... args)
+    void perform(Action&& action, bool groupedWithPrev = false)
     {
         popRedoable();
-        actions_.emplace_back(std::forward<Args>(args)...).perform();
+        actions_.push_back(Element { std::move(action), groupedWithPrev });
+        actions_.back().action.perform();
     }
 
-    bool undo()
+    size_t undo()
     {
-        if (actions_.empty() || undoneCount_ == actions_.size())
-            return false;
-
-        auto& action = actions_[actions_.size() - undoneCount_ - 1];
-        action.undo();
-        undoneCount_++;
-        return true;
+        size_t count = 0;
+        bool undoNext = getSize() > 0;
+        while (undoNext) {
+            const auto& elem = actions_[actions_.size() - 1 - undoneCount_];
+            elem.action.undo();
+            undoneCount_++;
+            count++;
+            undoNext = getSize() > 0 && elem.groupedWithPrev;
+        }
+        return count;
     }
 
-    bool redo()
+    size_t redo()
     {
+        size_t count = 0;
+        bool redoNext = undoneCount_ > 0;
+        while (redoNext) {
+            const auto& elem = actions_[actions_.size() - undoneCount_];
+            elem.action.perform();
+            undoneCount_--;
+            count++;
+            redoNext = undoneCount_ > 0 && actions_[actions_.size() - undoneCount_].groupedWithPrev;
+        }
+        return count;
+
         if (undoneCount_ == 0)
             return false;
-        auto& action = actions_[actions_.size() - undoneCount_];
-        action.perform();
+        const auto& elem = actions_[actions_.size() - undoneCount_];
+        elem.action.perform();
         undoneCount_--;
         return true;
     }
@@ -47,9 +61,14 @@ public:
         actions_.clear();
     }
 
+    const Action& getTop() const
+    {
+        return actions_[actions_.size() - 1 - undoneCount_].action;
+    }
+
     Action& getTop()
     {
-        return actions_[actions_.size() - 1 - undoneCount_];
+        return actions_[actions_.size() - 1 - undoneCount_].action;
     }
 
     size_t getSize() const
@@ -57,12 +76,12 @@ public:
         return actions_.size() - undoneCount_;
     }
 
-    size_t getUndoneCount() const
-    {
-        return undoneCount_;
-    }
-
 private:
+    struct Element {
+        Action action;
+        bool groupedWithPrev;
+    };
+
     size_t undoneCount_ = 0;
-    std::deque<Action> actions_;
+    std::deque<Element> actions_;
 };

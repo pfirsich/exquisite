@@ -228,64 +228,55 @@ void Buffer::setText(std::string_view str)
     text_.set(str);
 }
 
-void Buffer::TextAction::perform()
+void Buffer::TextAction::perform() const
 {
     buffer->text_.remove(Range { offset, textBefore.size() });
     buffer->text_.insert(offset, textAfter);
     buffer->cursor_ = cursorAfter;
 }
 
-void Buffer::TextAction::undo()
+void Buffer::TextAction::undo() const
 {
     buffer->text_.remove(Range { offset, textAfter.size() });
     buffer->text_.insert(offset, textBefore);
     buffer->cursor_ = cursorBefore;
 }
 
-void Buffer::TextAction::merge(const Buffer::TextAction& other)
+bool Buffer::shouldMerge(const TextAction& action) const
 {
-    // buffer, textBefore and cursorBefore remain unchanged
-    assert(offset != other.offset);
-    if (offset < other.offset) {
-        // offset unchanged
-        assert(other.offset == offset + textAfter.size());
-        textAfter.append(other.textAfter);
-    } else if (other.offset < offset) {
-        assert(offset == other.offset + other.textAfter.size());
-        offset = other.offset;
-        textAfter.insert(0, other.textAfter);
+    if (actions_.getSize() == 0)
+        return false;
+
+    const auto& top = actions_.getTop();
+
+    const bool isInsertion = action.textAfter.size() > 0;
+    if (isInsertion) {
+        // insert single char right after last insert and it's not
+        // whitespace (we want a separate undo after words or lines)
+        return action.textAfter.size() == 1 && !std::isspace(action.textAfter[0])
+            && action.offset == top.offset + 1;
+    } else { // deletion
+        // same as insertion, but not just after, also before
+        // also don't merge with deletions that are bigger than 1 char
+        return action.textBefore.size() == 1 && !std::isspace(action.textBefore[0])
+            && (action.offset == top.offset || action.offset + 1 == top.offset)
+            && top.textBefore.size() == 1;
     }
-    // cursorBefore unchanged as well
-    cursorAfter = other.cursorAfter;
 }
 
 void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
 {
-    const auto action = TextAction { this, getOffset(cursor_.min()),
-        text_.getString(getSelection()), std::string(text), cursor_, cursorAfter };
-
-    if (actions_.getSize() > 0) {
-        actions_.popRedoable(); // pop all other undone actions
-        auto& top = actions_.getTop(); // modify this later
-
-        // insert single char right after last insert and it's not
-        // whitespace (we want a separate undo after words or lines)
-        const bool mergeInsert = text.size() == 1 && !std::isspace(text[0])
-            && cursor_.emptySelection() && action.offset == top.offset + top.textAfter.size();
-
-        if (mergeInsert) {
-            debug("merge action");
-            actions_.undo(); // undo the action we want to merge
-            top.merge(action); // modify
-            actions_.redo(); // redo the modified action
-            return;
-        }
-    }
-    actions_.perform(action);
+    auto action = TextAction { this, getOffset(cursor_.min()), text_.getString(getSelection()),
+        std::string(text), cursor_, cursorAfter };
+    actions_.perform(std::move(action), shouldMerge(action));
 }
 
 void Buffer::insert(std::string_view str)
 {
+    // If you select text and start typing, I want a separate undo action for deleting the selection
+    if (!cursor_.emptySelection() && str.size() == 1)
+        deleteSelection();
+
     auto cursorAfter = cursor_;
     const auto newLines = std::count(str.cbegin(), str.cend(), '\n');
     cursorAfter.setY(cursorAfter.start.y + newLines, false);

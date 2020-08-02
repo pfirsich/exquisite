@@ -94,6 +94,8 @@ public:
     void moveCursorY(int dy, bool select);
     void scroll(size_t terminalHeight);
 
+    void startUndoTransaction();
+    void endUndoTransaction();
     bool undo();
     bool redo();
 
@@ -106,11 +108,12 @@ private:
         Cursor cursorBefore;
         Cursor cursorAfter;
 
-        void perform();
-        void undo();
+        void perform() const;
+        void undo() const;
         void merge(const TextAction& action);
     };
 
+    bool shouldMerge(const TextAction& action) const;
     void performAction(std::string_view text, const Cursor& cursorAfter);
 
     TextBuffer text_;
