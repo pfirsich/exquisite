@@ -9,6 +9,7 @@ using namespace std::literals;
 #include "config.hpp"
 #include "control.hpp"
 #include "debug.hpp"
+#include "fuzzy.hpp"
 #include "terminal.hpp"
 #include "utf8.hpp"
 
@@ -28,37 +29,34 @@ namespace {
         assert(false && "Unhandled control character");
     }
 
+    template <typename Value = size_t>
     class TerminalState {
     public:
-        TerminalState(std::string_view set, std::string_view unset, bool startState = false)
-            : set_(set)
-            , unset_(unset)
-            , currentState_(startState)
+        TerminalState(const std::vector<std::string>& values, Value initial = {})
+            : values_(values)
+            , current_(initial)
         {
         }
 
-        void set(bool state)
+        void set(Value v)
         {
-            if (state && !currentState_)
-                terminal::bufferWrite(set_);
-            if (!state && currentState_)
-                terminal::bufferWrite(unset_);
-            currentState_ = state;
+            if (current_ != v)
+                terminal::bufferWrite(values_[static_cast<size_t>(v)]);
+            current_ = v;
         }
 
     private:
-        std::string_view set_;
-        std::string_view unset_;
-        bool currentState_;
+        std::vector<std::string> values_;
+        size_t current_ = 0;
     };
 
     StatusMessage statusMessage;
+    std::unique_ptr<Prompt> currentPrompt;
 }
 
 Buffer buffer;
-std::unique_ptr<Prompt> currentPrompt;
 
-Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
+Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
 {
     terminal::bufferWrite(control::sgr::reset);
 
@@ -72,13 +70,15 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
     assert(firstLine <= lineCount - 1);
 
-    TerminalState faint(control::sgr::faint, control::sgr::resetIntensity);
-    TerminalState invert(control::sgr::invert, control::sgr::resetInvert);
+    TerminalState<bool> faint(
+        { std::string(control::sgr::resetIntensity), std::string(control::sgr::faint) });
+    TerminalState<bool> invert(
+        { std::string(control::sgr::resetInvert), std::string(control::sgr::invert) });
 
     // Always make space for at least 3 digits
     const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
     // 1 space margin left and right
-    const auto lineNumWidth = showLineNumbers ? lineNumDigits + 2 : 0;
+    const auto lineNumWidth = config.showLineNumbers ? lineNumDigits + 2 : 0;
 
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
@@ -92,10 +92,13 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
 
         const bool cursorInLine = l == cursor.y;
 
+        if (config.highlightCurrentLine && cursorInLine)
+            terminal::bufferWrite(control::sgr::bgColor(colorScheme.highlightLine));
+
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
 
-        if (showLineNumbers) {
+        if (config.showLineNumbers) {
             invert.set(true);
             terminal::bufferWrite(' '); // left margin
             const auto lineStr = std::to_string(l + 1);
@@ -169,6 +172,12 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
             }
         }
 
+        if (config.highlightCurrentLine && cursorInLine) {
+            for (size_t i = 0; i < size.x - lineNumWidth - line.length - 1; ++i)
+                terminal::bufferWrite(' ');
+            terminal::bufferWrite(control::sgr::resetBgColor);
+        }
+
         faint.set(false);
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
@@ -187,17 +196,16 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
     return drawCursor;
 }
 
-void drawStatusBar()
+void drawStatusBar(const Vec& terminalSize)
 {
-    const auto size = terminal::getSize();
     std::stringstream ss;
     ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << ' ';
     const auto lines = ss.str();
 
     std::string status;
-    status.reserve(size.x);
+    status.reserve(terminalSize.x);
     status.append(buffer.name);
-    status.append(size.x - lines.size() - status.size(), ' ');
+    status.append(terminalSize.x - lines.size() - status.size(), ' ');
     status.append(lines);
 
     terminal::bufferWrite(control::sgr::invert);
@@ -207,30 +215,85 @@ void drawStatusBar()
     terminal::bufferWrite("\r\n");
 }
 
+size_t getNumPromptOptions()
+{
+    if (!currentPrompt)
+        return 0;
+    return std::min(currentPrompt->getOptions().size(), config.numPromptOptions);
+}
+
+Vec drawPrompt(const Vec& terminalSize)
+{
+    const auto numOptions = getNumPromptOptions();
+    const auto selected = currentPrompt->getSelectedOption();
+    const auto& options = currentPrompt->getOptions();
+    const auto first = std::min(options.size() - numOptions,
+        selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
+
+    enum Background { Normal = 0, Selected, Highlight };
+    TerminalState<Background> background({
+        std::string(control::sgr::resetBgColor),
+        control::sgr::bgColor(colorScheme.highlightLine),
+        control::sgr::bgColor(colorScheme.matchHighlightColor),
+    });
+
+    for (size_t o = first; o < first + numOptions; ++o) {
+        const bool isSelected = o == selected;
+        const auto bg = isSelected ? Background::Selected : Background::Normal;
+        background.set(bg);
+
+        const auto& opt = options[o];
+        size_t matchIndex = 0;
+        for (size_t c = 0; c < opt.str.size(); ++c) {
+            if (matchIndex < opt.matchedCharacters.size()
+                && c == opt.matchedCharacters[matchIndex]) {
+                background.set(Background::Highlight);
+                matchIndex++;
+            } else {
+                background.set(bg);
+            }
+            terminal::bufferWrite(opt.str[c]);
+        }
+
+        background.set(bg);
+        terminal::bufferWrite(control::clearLine);
+        terminal::bufferWrite("\r\n");
+    }
+    terminal::bufferWrite(control::sgr::resetBgColor);
+
+    const auto prompt = currentPrompt->getPrompt();
+    terminal::bufferWrite(prompt);
+    assert(currentPrompt->input.getText().getLineCount() == 1);
+    Config promptConfig = config;
+    promptConfig.showLineNumbers = false;
+    promptConfig.highlightCurrentLine = false;
+    const auto drawCursor
+        = drawBuffer(currentPrompt->input, Vec { terminalSize.x - prompt.size(), 1 }, promptConfig);
+    terminal::bufferWrite(control::clearLine);
+    return drawCursor;
+}
+
 void redraw()
 {
     terminal::bufferWrite(control::hideCursor);
     terminal::bufferWrite(control::resetCursor);
 
     const auto size = terminal::getSize();
-    const auto pos = Vec { size.x, size.y - 2 };
-    auto drawCursor = drawBuffer(buffer, pos, config.showLineNumbers);
+    const auto bufferSize = Vec { size.x, size.y - 2 - getNumPromptOptions() };
+    auto drawCursor = drawBuffer(buffer, bufferSize, config);
     terminal::bufferWrite("\r\n");
 
-    drawStatusBar();
+    drawStatusBar(size);
 
     if (currentPrompt) {
-        terminal::bufferWrite(currentPrompt->prompt);
-        assert(currentPrompt->input.getText().getLineCount() == 1);
-        drawCursor = drawBuffer(currentPrompt->input, Vec { size.x, 1 }, false);
-        terminal::bufferWrite(control::clearLine);
+        drawCursor = drawPrompt(size);
     } else {
         switch (statusMessage.type) {
         case StatusMessage::Type::Normal:
             terminal::bufferWrite(control::sgr::reset);
             break;
         case StatusMessage::Type::Error:
-            terminal::bufferWrite(control::sgr::fgColor(1));
+            terminal::bufferWrite(control::sgr::fgColor(colorScheme.statusErrorColor));
             break;
         }
         terminal::bufferWrite(statusMessage.message);
@@ -242,12 +305,133 @@ void redraw()
     terminal::flushWrite();
 }
 
+Prompt::Prompt(std::string_view prompt, std::function<Callback> callback,
+    const std::vector<std::string>& options)
+    : prompt_(prompt)
+    , callback_(callback)
+{
+    for (size_t i = 0; i < options.size(); ++i)
+        options_.push_back(Option { i, options[i] });
+    if (!options_.empty())
+        selectedOption_ = options_.size() - 1;
+}
+
+void Prompt::update()
+{
+    const auto inputStr = input.getText().getString();
+    if (inputStr.empty()) {
+        for (auto& opt : options_)
+            opt.score = 1; // so they are considered matching
+
+        std::sort(options_.begin(), options_.end(),
+            [](const Option& a, const Option& b) { return a.originalIndex < b.originalIndex; });
+
+        selectedOption_ = options_.size() - 1;
+    } else {
+        for (auto& opt : options_)
+            opt.score = fuzzyMatchScore(inputStr, opt.str, &opt.matchedCharacters);
+
+        std::sort(options_.begin(), options_.end(),
+            [](const Option& a, const Option& b) { return a.score < b.score; });
+
+        // It's sorted, so if the last one is score = 0, they all are.
+        const auto anyMatching = options_.back().score > 0;
+        selectedOption_ = anyMatching ? options_.size() - 1 : 0;
+    }
+}
+
+std::optional<StatusMessage> Prompt::confirm()
+{
+    if (options_.empty()) {
+        return callback_(input.getText().getString());
+    } else {
+        if (selectedOption_ <= options_.size()) {
+            assert(options_[selectedOption_].score > 0);
+            return callback_(options_[selectedOption_].str);
+        }
+        // Probably no matching option
+        return std::nullopt;
+    }
+}
+
+void Prompt::selectUp()
+{
+    // This handles the care where we don't need to do anything and where there are no matching
+    // options (or where options is empty)
+    if (selectedOption_ > 0) {
+        // the check is wrap around
+        for (size_t i = selectedOption_ - 1; i < selectedOption_; --i) {
+            debug("score ", i, ": ", options_[i].score);
+            if (options_[i].score > 0) {
+                selectedOption_ = i;
+                break;
+            }
+        }
+    }
+}
+
+void Prompt::selectDown()
+{
+    // If the selected is not matching, none are
+    if (options_.empty() || options_[selectedOption_].score == 0)
+        return;
+
+    for (size_t i = selectedOption_ + 1; i < options_.size(); ++i) {
+        if (options_[i].score > 0) {
+            selectedOption_ = i;
+            break;
+        }
+    }
+}
+
+const std::string& Prompt::getPrompt() const
+{
+    return prompt_;
+}
+
+size_t Prompt::getNumMatchingOptions() const
+{
+    return std::count_if(
+        options_.begin(), options_.end(), [](const Option& o) { return o.score > 0; });
+}
+
+const std::vector<Prompt::Option>& Prompt::getOptions() const
+{
+    return options_;
+}
+
+size_t Prompt::getSelectedOption() const
+{
+    return selectedOption_;
+}
+
+std::unique_ptr<Prompt>& getPrompt()
+{
+    return currentPrompt;
+}
+
+void setPrompt(Prompt&& prompt)
+{
+    currentPrompt = std::make_unique<Prompt>(std::move(prompt));
+    currentPrompt->update();
+}
+
 void confirmPrompt()
 {
+    assert(currentPrompt);
     // Move from currentPrompt first, so callback can set another prompt
-    const auto prompt = std::move(currentPrompt);
-    const auto msg = prompt->callback(prompt->input.getText().getString());
-    setStatusMessage(msg.message, msg.type);
+    auto prompt = std::move(currentPrompt);
+    const auto msg = prompt->confirm();
+    if (msg)
+        setStatusMessage(msg->message, msg->type);
+    else // could not confirm, restore currentPrompt
+        currentPrompt = std::move(prompt);
+}
+
+void abortPrompt()
+{
+    assert(currentPrompt);
+    currentPrompt.reset();
 }
 
 void setStatusMessage(const std::string& message, StatusMessage::Type type)

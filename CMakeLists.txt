@@ -14,9 +14,11 @@ endif()
 set(SRC
   buffer.cpp
   clipboard.cpp
+  colors.cpp
   config.cpp
   control.cpp
   editor.cpp
+  fuzzy.cpp
   key.cpp
   main.cpp
   process.cpp

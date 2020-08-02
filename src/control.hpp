@@ -5,6 +5,7 @@
 
 using namespace std::literals;
 
+#include "colors.hpp"
 #include "util.hpp"
 
 namespace control {
@@ -35,12 +36,14 @@ namespace sgr {
     inline constexpr auto crossedOut = "\x1b[9m"sv;
     inline constexpr auto resetCrossedOut = "\x1b[29m"sv;
 
-    std::string fgColor(uint8_t color);
-    std::string fgColor(uint8_t r, uint8_t g, uint8_t b);
+    std::string fgColor(ColorIndex color);
+    std::string fgColor(const RgbColor& color);
+    std::string fgColor(const Color& color);
     inline constexpr auto resetFgColor = "\x1b[39m"sv;
 
-    std::string bgColor(uint8_t color);
-    std::string bgColor(uint8_t r, uint8_t g, uint8_t b);
+    std::string bgColor(ColorIndex color);
+    std::string bgColor(const RgbColor& color);
+    std::string bgColor(const Color& color);
     inline constexpr auto resetBgColor = "\x1b[49m"sv;
 }
 }

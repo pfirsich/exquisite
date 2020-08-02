@@ -142,7 +142,7 @@ Range TextBuffer::getLine(LineIndex idx) const
 
 TextBuffer::LineIndex TextBuffer::getLineIndex(size_t offset) const
 {
-    assert(offset < getSize());
+    assert(offset <= getSize());
     for (LineIndex i = 0; i < lineOffsets_.size() - 1; ++i)
         if (offset < lineOffsets_[i + 1])
             return i;

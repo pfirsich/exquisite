@@ -278,9 +278,9 @@ void write(std::string_view str)
         die("write");
 }
 
-void bufferWrite(char ch)
+void bufferWrite(char ch, size_t num)
 {
-    writeBuffer.push_back(ch);
+    writeBuffer.insert(writeBuffer.end(), num, ch);
 }
 
 void bufferWrite(std::string_view str)

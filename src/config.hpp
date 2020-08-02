@@ -16,6 +16,10 @@ struct Config {
     std::optional<std::string_view> tabEndChar = ">"sv;
 
     bool showLineNumbers = true;
+
+    size_t highlightCurrentLine = true;
+
+    size_t numPromptOptions = 7;
 };
 
 extern Config config;

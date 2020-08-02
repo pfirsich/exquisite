@@ -16,21 +16,51 @@ struct StatusMessage {
     Type type = Type::Normal;
 };
 
-using PromptCallback = StatusMessage(std::string_view input);
-
 struct Prompt {
-    std::string prompt;
-    std::function<PromptCallback> callback;
-    std::vector<std::string> options = {};
-    Buffer input {};
+public:
+    struct Option {
+        size_t originalIndex;
+        std::string str;
+        size_t score = 0;
+        std::vector<size_t> matchedCharacters = {};
+    };
+
+    using Callback = StatusMessage(std::string_view input);
+
+    Buffer input;
+
+    Prompt(std::string_view prompt, std::function<Callback> callback,
+        const std::vector<std::string>& options = {});
+
+    const std::string& getPrompt() const;
+
+    size_t getNumMatchingOptions() const;
+    const std::vector<Option>& getOptions() const;
+    size_t getSelectedOption() const;
+
+    void update();
+    std::optional<StatusMessage> confirm();
+    void selectUp();
+    void selectDown();
+
+private:
+    std::string prompt_;
+    std::function<Callback> callback_;
+    std::vector<Option> options_;
+    // This always points at a matching option. If there are no (matching) options, it's 0
+    size_t selectedOption_ = 0;
 };
 
 extern Buffer buffer;
-extern std::unique_ptr<Prompt> currentPrompt;
 
 void redraw();
-void confirmPrompt();
+
 void setStatusMessage(
     const std::string& message, StatusMessage::Type type = StatusMessage::Type::Normal);
 StatusMessage getStatusMessage();
+
+std::unique_ptr<Prompt>& getPrompt();
+void setPrompt(Prompt&& prompt);
+void confirmPrompt();
+void abortPrompt();
 }

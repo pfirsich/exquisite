@@ -17,7 +17,7 @@ std::optional<Key> readKey();
 
 // output
 void write(std::string_view str);
-void bufferWrite(char ch);
+void bufferWrite(char ch, size_t num = 1);
 void bufferWrite(std::string_view str);
 void flushWrite();
 }

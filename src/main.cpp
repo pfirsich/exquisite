@@ -28,12 +28,6 @@ bool processBufferInput(Buffer& buffer, const Key& key)
         case SpecialKey::Right:
             buffer.moveCursorRight(select);
             return true;
-        case SpecialKey::Up:
-            buffer.moveCursorY(-1, select);
-            return true;
-        case SpecialKey::Down:
-            buffer.moveCursorY(1, select);
-            return true;
         case SpecialKey::PageUp:
             buffer.moveCursorY(-size.y - 1, select);
             return true;
@@ -111,15 +105,6 @@ void readStdin()
     editor::buffer.name = "STDIN";
 }
 
-editor::StatusMessage insertTextPromptCallback(std::string_view input)
-{
-    if (input.empty())
-        return editor::StatusMessage { "Empty", editor::StatusMessage::Type::Error };
-
-    editor::buffer.insert(input);
-    return editor::StatusMessage { "" };
-}
-
 editor::StatusMessage openFilePromptCallback(std::string_view input)
 {
     const auto path = std::string(input);
@@ -145,13 +130,25 @@ editor::StatusMessage saveFilePromptCallback(std::string_view input)
     return editor::getStatusMessage();
 }
 
-std::unique_ptr<editor::Prompt> saveFilePrompt()
+editor::Prompt saveFilePrompt()
 {
-    auto ptr = std::make_unique<editor::Prompt>(
-        editor::Prompt { "Save File> ", saveFilePromptCallback });
-    ptr->input.setText(editor::buffer.name);
-    ptr->input.moveCursorEnd(false);
-    return ptr;
+    editor::Prompt prompt { "Save File> ", saveFilePromptCallback };
+    prompt.input.setText(editor::buffer.name);
+    prompt.input.moveCursorEnd(false);
+    return prompt;
+}
+
+editor::StatusMessage commandPaletteCallback(std::string_view input)
+{
+    if (input.empty())
+        return editor::StatusMessage { "Unknown command", editor::StatusMessage::Type::Error };
+    return editor::StatusMessage { std::string(input) };
+}
+
+editor::Prompt commandPalettePrompt()
+{
+    return editor::Prompt { "> ", commandPaletteCallback,
+        { "FOO", "BAR", "BLUB", "TEST", "KACKEN", "PISSEN", "ENTE", "BANANE", "WASSER" } };
 }
 
 void debugKey(const Key& key)
@@ -177,7 +174,14 @@ void processInput(const Key& key)
         return;
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
+        const bool select = key.modifiers.test(Modifiers::Shift);
         switch (*special) {
+        case SpecialKey::Up:
+            editor::buffer.moveCursorY(-1, select);
+            break;
+        case SpecialKey::Down:
+            editor::buffer.moveCursorY(1, select);
+            break;
         case SpecialKey::Return:
             editor::buffer.insert("\n" + getCurrentIndent());
             break;
@@ -196,19 +200,17 @@ void processInput(const Key& key)
                     editor::setStatusMessage("");
                     break;
                 case 'o':
-                    editor::currentPrompt = std::make_unique<editor::Prompt>(
-                        editor::Prompt { "Open File> ", openFilePromptCallback });
+                    editor::setPrompt(editor::Prompt { "Open File> ", openFilePromptCallback });
                     break;
                 case 's':
-                    editor::currentPrompt = saveFilePrompt();
+                    editor::setPrompt(saveFilePrompt());
                     break;
                 case 'z':
                     if (!editor::buffer.undo())
                         editor::setStatusMessage("Nothing to undo");
                     break;
                 case 'p':
-                    editor::currentPrompt = std::make_unique<editor::Prompt>(
-                        editor::Prompt { "Insert Text> ", insertTextPromptCallback });
+                    editor::setPrompt(commandPalettePrompt());
                     break;
                 case 'c':
                     if (!editor::buffer.getCursor().emptySelection()) {
@@ -245,16 +247,28 @@ void processInput(const Key& key)
 
 void processPromptInput(const Key& key)
 {
-    if (processBufferInput(editor::currentPrompt->input, key))
+    const auto& prompt = editor::getPrompt();
+    const auto text = prompt->input.getText().getString();
+    if (processBufferInput(prompt->input, key)) {
+        // not very clever
+        if (text != prompt->input.getText().getString())
+            prompt->update();
         return;
+    }
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         switch (*special) {
+        case SpecialKey::Up:
+            prompt->selectUp();
+            break;
+        case SpecialKey::Down:
+            prompt->selectDown();
+            break;
         case SpecialKey::Return:
             editor::confirmPrompt();
             break;
         case SpecialKey::Escape:
-            editor::currentPrompt.reset();
+            editor::abortPrompt();
             break;
         default:
             break;
@@ -299,7 +313,7 @@ int main(int argc, char** argv)
         const auto key = terminal::readKey();
         if (key) {
             debugKey(*key);
-            if (editor::currentPrompt)
+            if (editor::getPrompt())
                 processPromptInput(*key);
             else
                 processInput(*key);
