@@ -202,6 +202,10 @@ void processInput(const Key& key)
                 case 's':
                     editor::currentPrompt = saveFilePrompt();
                     break;
+                case 'z':
+                    if (!editor::buffer.undo())
+                        editor::setStatusMessage("Nothing to undo");
+                    break;
                 case 'p':
                     editor::currentPrompt = std::make_unique<editor::Prompt>(
                         editor::Prompt { "Insert Text> ", insertTextPromptCallback });
@@ -224,6 +228,13 @@ void processInput(const Key& key)
                             "Could not get clipboard.", editor::StatusMessage::Type::Error);
                     }
                 } break;
+                }
+            } else {
+                switch (seq->bytes[0]) {
+                case 'z':
+                    if (!editor::buffer.redo())
+                        editor::setStatusMessage("Nothing to redo");
+                    break;
                 }
             }
         }

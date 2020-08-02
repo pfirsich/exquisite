@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 
+#include "actionstack.hpp"
 #include "util.hpp"
 
 // TODO: Use a Rope: https://en.wikipedia.org/wiki/Rope_(data_structure)
@@ -93,8 +94,26 @@ public:
     void moveCursorY(int dy, bool select);
     void scroll(size_t terminalHeight);
 
+    bool undo();
+    bool redo();
+
 private:
+    struct TextAction {
+        Buffer* buffer;
+        size_t offset;
+        std::string textBefore;
+        std::string textAfter;
+        Cursor cursorBefore;
+        Cursor cursorAfter;
+
+        void perform();
+        void undo();
+    };
+
+    void performAction(std::string_view text, const Cursor& cursorAfter);
+
     TextBuffer text_;
+    ActionStack<TextAction> actions_;
     Cursor cursor_;
     size_t scroll_ = 0; // in lines
 };

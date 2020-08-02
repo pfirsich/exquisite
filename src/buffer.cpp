@@ -228,43 +228,66 @@ void Buffer::setText(std::string_view str)
     text_.set(str);
 }
 
+void Buffer::TextAction::perform()
+{
+    buffer->text_.remove(Range { offset, textBefore.size() });
+    buffer->text_.insert(offset, textAfter);
+    buffer->cursor_ = cursorAfter;
+}
+
+void Buffer::TextAction::undo()
+{
+    buffer->text_.remove(Range { offset, textAfter.size() });
+    buffer->text_.insert(offset, textBefore);
+    buffer->cursor_ = cursorBefore;
+}
+
+void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
+{
+    const auto cursorMin = cursor_.min();
+    actions_.perform(TextAction { this, getOffset(cursorMin), text_.getString(getSelection()),
+        std::string(text), cursor_, cursorAfter });
+}
+
 void Buffer::insert(std::string_view str)
 {
-    if (!cursor_.emptySelection())
-        deleteSelection();
-    assert(cursor_.emptySelection());
-    const auto lineCount = text_.getLineCount();
-    text_.insert(getOffset(cursor_.start), str);
-    const auto newLines = text_.getLineCount() - lineCount;
-    cursor_.setY(cursor_.start.y + newLines, false);
+    auto cursorAfter = cursor_;
+    const auto newLines = std::count(str.cbegin(), str.cend(), '\n');
+    cursorAfter.setY(cursorAfter.start.y + newLines, false);
     if (newLines > 0) {
         const auto nl = str.rfind('\n');
         assert(nl != std::string_view::npos);
-        cursor_.setX(str.size() - nl - 1, false);
+        cursorAfter.setX(str.size() - nl - 1, false);
     } else {
-        cursor_.setX(getX(cursor_.start) + str.size(), false);
+        cursorAfter.setX(getX(cursorAfter.start) + str.size(), false);
     }
+    performAction(str, cursorAfter);
 }
 
 void Buffer::deleteSelection()
 {
     assert(!cursor_.emptySelection());
-    text_.remove(getSelection());
-    cursor_.set(cursor_.min());
+    auto cursorAfter = cursor_;
+    cursorAfter.set(cursor_.min());
+    performAction("", cursorAfter);
 }
 
 void Buffer::deleteBackwards()
 {
+    const auto cursorBefore = cursor_;
     if (cursor_.emptySelection())
         moveCursorLeft(true);
     deleteSelection();
+    actions_.getTop().cursorBefore = cursorBefore;
 }
 
 void Buffer::deleteForwards()
 {
+    const auto cursorBefore = cursor_;
     if (cursor_.emptySelection())
         moveCursorRight(true);
     deleteSelection();
+    actions_.getTop().cursorBefore = cursorBefore;
 }
 
 size_t Buffer::getX(const Cursor::End& cursorEnd) const
@@ -395,4 +418,14 @@ void Buffer::scroll(size_t terminalHeight)
         scroll_ = cursor_.start.y;
     else if (cursor_.start.y - scroll_ > terminalHeight)
         scroll_ = std::min(text_.getLineCount() - 1, cursor_.start.y - terminalHeight);
+}
+
+bool Buffer::undo()
+{
+    return actions_.undo();
+}
+
+bool Buffer::redo()
+{
+    return actions_.redo();
 }
