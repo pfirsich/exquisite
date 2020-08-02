@@ -223,9 +223,9 @@ size_t getNumPromptOptions()
 Vec drawPrompt(const Vec& terminalSize)
 {
     const auto numOptions = getNumPromptOptions();
+    const auto& options = currentPrompt->getOptions();
     if (numOptions > 0) {
         const auto selected = currentPrompt->getSelectedOption();
-        const auto& options = currentPrompt->getOptions();
         const auto skip = std::min(currentPrompt->getNumMatchingOptions() - numOptions,
             selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
 
@@ -276,7 +276,7 @@ Vec drawPrompt(const Vec& terminalSize)
             skipToNextMatching(options, index);
         }
         terminal::bufferWrite(control::sgr::resetBgColor);
-    } else {
+    } else if (!options.empty()) {
         terminal::bufferWrite("No matches");
         terminal::bufferWrite(control::clearLine);
         terminal::bufferWrite("\r\n");
@@ -300,8 +300,10 @@ void redraw()
     terminal::bufferWrite(control::resetCursor);
 
     const auto size = terminal::getSize();
-    // At least one line for the message
-    const auto promptHeight = currentPrompt ? std::max(1ul, getNumPromptOptions()) : 0;
+    // At least one line for "No matches" if there are options
+    const auto promptHeight = currentPrompt
+        ? std::max(currentPrompt->getOptions().size() > 0 ? 1ul : 0ul, getNumPromptOptions())
+        : 0;
     const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
     auto drawCursor = drawBuffer(buffer, bufferSize, config);
     terminal::bufferWrite("\r\n");
@@ -358,7 +360,7 @@ void Prompt::update()
             [](const Option& a, const Option& b) { return a.score < b.score; });
 
         // It's sorted, so if the last one is score = 0, they all are.
-        const auto anyMatching = options_.back().score > 0;
+        const auto anyMatching = !options_.empty() && options_.back().score > 0;
         selectedOption_ = anyMatching ? options_.size() - 1 : 0;
     }
 }

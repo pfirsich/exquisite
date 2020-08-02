@@ -325,6 +325,9 @@ void Buffer::deleteSelection()
 
 void Buffer::deleteBackwards()
 {
+    if (text_.getSize() == 0)
+        return;
+
     const auto cursorBefore = cursor_;
     if (cursor_.emptySelection())
         moveCursorLeft(true);
@@ -334,6 +337,9 @@ void Buffer::deleteBackwards()
 
 void Buffer::deleteForwards()
 {
+    if (text_.getSize() == 0)
+        return;
+
     const auto cursorBefore = cursor_;
     if (cursor_.emptySelection())
         moveCursorRight(true);
