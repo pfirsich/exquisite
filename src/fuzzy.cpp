@@ -1,9 +1,6 @@
 #include "fuzzy.hpp"
 
-bool FuzzyMatchCompare::operator()(const std::string& a, const std::string& b)
-{
-    return fuzzyMatchScore(input, a) < fuzzyMatchScore(input, b);
-}
+#include "debug.hpp"
 
 size_t fuzzyMatchScore(
     std::string_view input, std::string_view str, std::vector<size_t>* matchedCharacters)
@@ -15,7 +12,7 @@ size_t fuzzyMatchScore(
     const auto max = std::numeric_limits<size_t>::max();
     size_t score = max;
     for (size_t i = 0; i < input.size(); ++i) {
-        const auto lastS = 0;
+        size_t lastS = 0;
         while (s < str.size() && std::tolower(str[s]) != std::tolower(input[i]))
             s++;
         if (s == str.size())
@@ -25,7 +22,8 @@ size_t fuzzyMatchScore(
             matchedCharacters->push_back(s);
 
         score -= s; // reduce the score for late matches
-        score -= s - lastS; // reduce the score if this match is far apart from the last
+        score -= s - lastS - 1; // reduce the score if this match is far apart from the last
+        lastS = s;
     }
-    return max;
+    return score;
 }

@@ -2,6 +2,9 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -113,7 +116,7 @@ editor::StatusMessage openFilePromptCallback(std::string_view input)
         return editor::StatusMessage { "Could not open file '" + path + "'",
             editor::StatusMessage::Type::Error };
     }
-    return editor::getStatusMessage();
+    return editor::StatusMessage { "" };
 }
 
 editor::StatusMessage saveFilePromptCallback(std::string_view input)
@@ -127,7 +130,7 @@ editor::StatusMessage saveFilePromptCallback(std::string_view input)
         return editor::StatusMessage { "Could not write file", editor::StatusMessage::Type::Error };
     if (fclose(f) != 0)
         return editor::StatusMessage { "Could not close file", editor::StatusMessage::Type::Error };
-    return editor::getStatusMessage();
+    return editor::StatusMessage { "" };
 }
 
 editor::Prompt saveFilePrompt()
@@ -151,6 +154,33 @@ editor::StatusMessage commandPaletteCallback(std::string_view input)
 editor::Prompt commandPalettePrompt()
 {
     return editor::Prompt { "> ", commandPaletteCallback, commands };
+}
+
+editor::StatusMessage gotoFileCallback(std::string_view input)
+{
+    if (!readFile(std::string(input)))
+        return editor::StatusMessage { "Could not close file", editor::StatusMessage::Type::Error };
+    return editor::StatusMessage { "" };
+}
+
+std::vector<std::string> walkDirectory()
+{
+    std::vector<std::string> files;
+    for (auto it = fs::recursive_directory_iterator(".",
+             fs::directory_options::follow_directory_symlink
+                 | fs::directory_options::skip_permission_denied);
+         it != fs::recursive_directory_iterator(); ++it) {
+        if (it->path().filename().c_str()[0] == '.')
+            it.disable_recursion_pending();
+        if (it->is_regular_file())
+            files.push_back(it->path());
+    }
+    return files;
+}
+
+editor::Prompt gotoFilePrompt()
+{
+    return editor::Prompt { "> ", gotoFileCallback, walkDirectory() };
 }
 
 void debugKey(const Key& key)
@@ -212,7 +242,7 @@ void processInput(const Key& key)
                         editor::setStatusMessage("Nothing to undo");
                     break;
                 case 'p':
-                    editor::setPrompt(commandPalettePrompt());
+                    editor::setPrompt(gotoFilePrompt());
                     break;
                 case 'c':
                     if (!editor::buffer.getCursor().emptySelection()) {
@@ -238,6 +268,9 @@ void processInput(const Key& key)
                 case 'z':
                     if (!editor::buffer.redo())
                         editor::setStatusMessage("Nothing to redo");
+                    break;
+                case 'p':
+                    editor::setPrompt(commandPalettePrompt());
                     break;
                 }
             }
@@ -300,9 +333,6 @@ int main(int argc, char** argv)
         const int tty = open("/dev/tty", O_RDONLY);
         dup2(tty, STDIN_FILENO);
         close(tty);
-    } else {
-        printUsage();
-        exit(1);
     }
 
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");

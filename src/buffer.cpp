@@ -226,6 +226,9 @@ size_t Buffer::getScroll() const
 void Buffer::setText(std::string_view str)
 {
     text_.set(str);
+    actions_.clear();
+    cursor_ = Cursor {};
+    scroll_ = 0;
 }
 
 void Buffer::TextAction::perform() const
