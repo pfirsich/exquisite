@@ -84,9 +84,11 @@ public:
     size_t getOffset(const Cursor::End& cursorEnd) const;
     Range getSelection() const;
 
+    void setPath(const fs::path& path);
     void setText(std::string_view str);
     bool readFromFile(const fs::path& path);
     void readFromStdin();
+    bool save() const;
 
     void insert(std::string_view str);
     void deleteSelection();

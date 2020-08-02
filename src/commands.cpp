@@ -63,16 +63,11 @@ Command open {
 // clang-format on
 editor::StatusMessage savePromptCallback(std::string_view input)
 {
-    const auto path = std::string(input);
-    FILE* f = fopen(path.c_str(), "wb");
-    if (!f)
-        return editor::StatusMessage { "Could not open file", editor::StatusMessage::Type::Error };
-    const auto data = editor::buffer.getText().getString();
-    if (fwrite(data.c_str(), 1, data.size(), f) != data.size())
-        return editor::StatusMessage { "Could not write file", editor::StatusMessage::Type::Error };
-    if (fclose(f) != 0)
-        return editor::StatusMessage { "Could not close file", editor::StatusMessage::Type::Error };
-    return editor::StatusMessage { "" };
+    editor::buffer.setPath(fs::path(input));
+    if (!editor::buffer.save()) {
+        return editor::StatusMessage { "Error saving file", editor::StatusMessage::Type::Error };
+    }
+    return editor::StatusMessage { "Saved to '" + std::string(input) + "'" };
 }
 // clang-format off
 
@@ -80,10 +75,12 @@ Command save {
     "Save",
     // clang-format on
     []() {
-        editor::Prompt prompt { "Save File> ", savePromptCallback };
-        prompt.input.setText(editor::buffer.name);
-        prompt.input.moveCursorEnd(false);
-        return prompt;
+        if (editor::buffer.path.empty()) {
+            editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback });
+        } else {
+            editor::buffer.save();
+            editor::setStatusMessage("Saved");
+        }
     }
     // clang-format off
 };
@@ -148,6 +145,7 @@ editor::StatusMessage commandPaletteCallback(std::string_view input)
     const auto it = std::find_if(commands::all().begin(), commands::all().end(),
         [input](const Command* cmd) { return cmd->name == input; });
     std::iter_swap(it, commands::all().end() - 1);
+    debug("Command: ", commands::all().back()->name);
     commands::all().back()->func();
     return editor::StatusMessage {};
 }
@@ -159,7 +157,6 @@ Command showCommandPalette {
     []() {
         std::vector<std::string> options;
         for (const auto cmd : commands::all()) {
-            debug(cmd->name);
             options.push_back(cmd->name);
         }
         editor::setPrompt(editor::Prompt { "> ", commandPaletteCallback, options });

@@ -200,9 +200,15 @@ int main(int argc, char** argv)
 {
     std::vector<std::string> args(argv + 1, argv + argc);
     if (args.size() > 0) {
-        if (!editor::buffer.readFromFile(args[0])) {
-            fprintf(stderr, "Could not open file '%s'\n", args[0].c_str());
-            exit(1);
+        fs::path path = args[0];
+        if (!fs::exists(path)) {
+            editor::setStatusMessage("New file");
+            editor::buffer.setPath(path);
+        } else {
+            if (!editor::buffer.readFromFile(path)) {
+                fprintf(stderr, "Could not open file '%s'\n", args[0].c_str());
+                exit(1);
+            }
         }
     } else if (!isatty(STDIN_FILENO)) {
         editor::buffer.readFromStdin();

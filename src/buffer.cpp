@@ -226,6 +226,12 @@ size_t Buffer::getScroll() const
     return scroll_;
 }
 
+void Buffer::setPath(const fs::path& p)
+{
+    path = p;
+    name = p.filename();
+}
+
 void Buffer::setText(std::string_view str)
 {
     text_.set(str);
@@ -240,8 +246,7 @@ bool Buffer::readFromFile(const fs::path& p)
     if (!data)
         return false;
     setText(*data);
-    name = p.filename();
-    path = p;
+    setPath(p);
     return true;
 }
 
@@ -251,6 +256,26 @@ void Buffer::readFromStdin()
     setText(data);
     name = "STDIN";
     path = "";
+}
+
+bool Buffer::save() const
+{
+    assert(!path.empty());
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) {
+        debug("Could not open file");
+        return false;
+    }
+    const auto data = text_.getString();
+    if (fwrite(data.c_str(), 1, data.size(), f) != data.size()) {
+        debug("Could not write to file");
+        return false;
+    }
+    if (fclose(f) != 0) {
+        debug("Could not close file");
+        return false;
+    }
+    return true;
 }
 
 void Buffer::TextAction::perform() const
