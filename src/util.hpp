@@ -1,9 +1,14 @@
 #pragma once
 
 #include <cstdio>
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
+
+namespace fs = std::filesystem;
 
 struct Vec {
     // for terminal cells 0, 0 is top left
@@ -35,3 +40,7 @@ struct Range {
 std::string hexString(const void* data, size_t size);
 
 std::unique_ptr<FILE, decltype(&fclose)> uniqueFopen(const char* path, const char* modes);
+
+std::optional<std::string> readFile(const fs::path& path);
+
+std::string readAll(int fd);

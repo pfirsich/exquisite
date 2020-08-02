@@ -15,6 +15,7 @@ set(SRC
   buffer.cpp
   clipboard.cpp
   colors.cpp
+  commands.cpp
   config.cpp
   control.cpp
   editor.cpp

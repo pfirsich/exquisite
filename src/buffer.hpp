@@ -1,11 +1,14 @@
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "actionstack.hpp"
 #include "util.hpp"
+
+namespace fs = std::filesystem;
 
 // TODO: Use a Rope: https://en.wikipedia.org/wiki/Rope_(data_structure)
 class TextBuffer {
@@ -70,6 +73,7 @@ struct Cursor {
 class Buffer {
 public:
     std::string name;
+    fs::path path;
 
     const TextBuffer& getText() const;
     const Cursor& getCursor() const;
@@ -81,6 +85,8 @@ public:
     Range getSelection() const;
 
     void setText(std::string_view str);
+    bool readFromFile(const fs::path& path);
+    void readFromStdin();
 
     void insert(std::string_view str);
     void deleteSelection();

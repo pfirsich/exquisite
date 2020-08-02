@@ -30,3 +30,30 @@ std::unique_ptr<FILE, decltype(&fclose)> uniqueFopen(const char* path, const cha
 {
     return std::unique_ptr<FILE, decltype(&fclose)>(fopen(path, modes), &fclose);
 }
+
+std::optional<std::string> readFile(const fs::path& path)
+{
+    auto f = uniqueFopen(path.c_str(), "rb");
+    if (!f)
+        return std::nullopt;
+    fseek(f.get(), 0, SEEK_END);
+    const auto size = ftell(f.get());
+    fseek(f.get(), 0, SEEK_SET);
+    std::string buf(size, '\0');
+    fread(buf.data(), 1, size, f.get());
+    return buf;
+}
+
+std::string readAll(int fd)
+{
+    static constexpr int bufSize = 64;
+    char buf[bufSize];
+    std::string str;
+    int n = 0;
+    while ((n = ::read(fd, &buf[0], bufSize)) > 0) {
+        str.append(&buf[0], n);
+        if (n < bufSize)
+            break;
+    }
+    return str;
+}

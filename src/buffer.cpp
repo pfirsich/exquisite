@@ -3,8 +3,11 @@
 #include <cassert>
 #include <tuple>
 
+#include <unistd.h>
+
 #include "debug.hpp"
 #include "utf8.hpp"
+#include "util.hpp"
 
 TextBuffer::TextBuffer()
 {
@@ -229,6 +232,25 @@ void Buffer::setText(std::string_view str)
     actions_.clear();
     cursor_ = Cursor {};
     scroll_ = 0;
+}
+
+bool Buffer::readFromFile(const fs::path& p)
+{
+    const auto data = readFile(p.c_str());
+    if (!data)
+        return false;
+    setText(*data);
+    name = p.filename();
+    path = p;
+    return true;
+}
+
+void Buffer::readFromStdin()
+{
+    const auto data = readAll(STDIN_FILENO);
+    setText(data);
+    name = "STDIN";
+    path = "";
 }
 
 void Buffer::TextAction::perform() const
