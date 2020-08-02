@@ -35,6 +35,14 @@ struct Range {
     }
 };
 
+template <typename T>
+T subClamp(T a, T b)
+{
+    if (a < b)
+        return 0;
+    return a - b;
+}
+
 [[noreturn]] void die(std::string_view msg);
 
 std::string hexString(const void* data, size_t size);

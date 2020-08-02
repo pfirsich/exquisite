@@ -12,6 +12,7 @@ using namespace std::literals;
 #include "fuzzy.hpp"
 #include "terminal.hpp"
 #include "utf8.hpp"
+#include "util.hpp"
 
 namespace editor {
 namespace {
@@ -78,7 +79,8 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
     // Always make space for at least 3 digits
     const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
     // 1 space margin left and right
-    const auto lineNumWidth = config.showLineNumbers ? lineNumDigits + 2 : 0;
+    const size_t lineNumWidth = config.showLineNumbers ? lineNumDigits + 2 : 0;
+    const auto textWidth = subClamp(size.x, lineNumWidth);
 
     terminal::flushWrite();
     const auto pos = terminal::getCursorPosition();
@@ -109,7 +111,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
             invert.set(false);
         }
 
-        const auto lineEndIndex = line.offset + std::min(line.length, size.x - lineNumWidth);
+        const auto lineEndIndex = line.offset + std::min(line.length, textWidth);
         for (size_t i = line.offset; i < lineEndIndex; ++i) {
             const auto ch = text[i];
 
@@ -165,15 +167,18 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
         }
 
         // The index will be < size but not \n only if we didn't draw the whole line
-        if (lineEndIndex < text.getSize() && text[lineEndIndex] == '\n') {
-            if (config.renderWhitespace && config.newlineChar) {
-                faint.set(true);
-                terminal::bufferWrite(*config.newlineChar);
-            }
+        const bool drawNewline = config.renderWhitespace && config.newlineChar
+            && line.length < textWidth && lineEndIndex < text.getSize()
+            && text[lineEndIndex] == '\n';
+        if (drawNewline) {
+            faint.set(true);
+            terminal::bufferWrite(*config.newlineChar);
         }
 
         if (config.highlightCurrentLine && cursorInLine) {
-            for (size_t i = 0; i < size.x - lineNumWidth - line.length - 1; ++i)
+            const auto numSpaces
+                = subClamp(subClamp(textWidth, line.length), drawNewline ? 1ul : 0ul);
+            for (size_t i = 0; i < numSpaces; ++i)
                 terminal::bufferWrite(' ');
             terminal::bufferWrite(control::sgr::resetBgColor);
         }
