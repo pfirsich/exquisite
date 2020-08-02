@@ -217,49 +217,70 @@ void drawStatusBar(const Vec& terminalSize)
 
 size_t getNumPromptOptions()
 {
-    if (!currentPrompt)
-        return 0;
-    return std::min(currentPrompt->getOptions().size(), config.numPromptOptions);
+    return std::min(currentPrompt->getNumMatchingOptions(), config.numPromptOptions);
 }
 
 Vec drawPrompt(const Vec& terminalSize)
 {
     const auto numOptions = getNumPromptOptions();
-    const auto selected = currentPrompt->getSelectedOption();
-    const auto& options = currentPrompt->getOptions();
-    const auto first = std::min(options.size() - numOptions,
-        selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
+    if (numOptions > 0) {
+        const auto selected = currentPrompt->getSelectedOption();
+        const auto& options = currentPrompt->getOptions();
+        const auto skip = std::min(currentPrompt->getNumMatchingOptions() - numOptions,
+            selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
 
-    enum Background { Normal = 0, Selected, Highlight };
-    TerminalState<Background> background({
-        std::string(control::sgr::resetBgColor),
-        control::sgr::bgColor(colorScheme.highlightLine),
-        control::sgr::bgColor(colorScheme.matchHighlightColor),
-    });
+        enum Background { Normal = 0, Selected, Highlight };
+        TerminalState<Background> background({
+            std::string(control::sgr::resetBgColor),
+            control::sgr::bgColor(colorScheme.highlightLine),
+            control::sgr::bgColor(colorScheme.matchHighlightColor),
+        });
 
-    for (size_t o = first; o < first + numOptions; ++o) {
-        const bool isSelected = o == selected;
-        const auto bg = isSelected ? Background::Selected : Background::Normal;
-        background.set(bg);
+        auto skipToNextMatching = [](const std::vector<Prompt::Option>& opts, size_t& index) {
+            index++;
+            while (index < opts.size() && opts[index].score == 0)
+                index++;
+        };
 
-        const auto& opt = options[o];
-        size_t matchIndex = 0;
-        for (size_t c = 0; c < opt.str.size(); ++c) {
-            if (matchIndex < opt.matchedCharacters.size()
-                && c == opt.matchedCharacters[matchIndex]) {
-                background.set(Background::Highlight);
-                matchIndex++;
-            } else {
-                background.set(bg);
+        size_t index = 0;
+        if (options[index].score == 0)
+            skipToNextMatching(options, index);
+
+        for (size_t i = 0; i < skip; ++i)
+            skipToNextMatching(options, index);
+        assert(index < options.size());
+
+        for (size_t n = 0; n < numOptions; ++n) {
+            assert(index < options.size());
+            const bool isSelected = index == selected;
+            const auto bg = isSelected ? Background::Selected : Background::Normal;
+            background.set(bg);
+
+            const auto& opt = options[index];
+            size_t matchIndex = 0;
+            for (size_t c = 0; c < opt.str.size(); ++c) {
+                if (matchIndex < opt.matchedCharacters.size()
+                    && c == opt.matchedCharacters[matchIndex]) {
+                    background.set(Background::Highlight);
+                    matchIndex++;
+                } else {
+                    background.set(bg);
+                }
+                terminal::bufferWrite(opt.str[c]);
             }
-            terminal::bufferWrite(opt.str[c]);
-        }
 
-        background.set(bg);
+            background.set(bg);
+            terminal::bufferWrite(control::clearLine);
+            terminal::bufferWrite("\r\n");
+
+            skipToNextMatching(options, index);
+        }
+        terminal::bufferWrite(control::sgr::resetBgColor);
+    } else {
+        terminal::bufferWrite("No matches");
         terminal::bufferWrite(control::clearLine);
         terminal::bufferWrite("\r\n");
     }
-    terminal::bufferWrite(control::sgr::resetBgColor);
 
     const auto prompt = currentPrompt->getPrompt();
     terminal::bufferWrite(prompt);
@@ -279,7 +300,9 @@ void redraw()
     terminal::bufferWrite(control::resetCursor);
 
     const auto size = terminal::getSize();
-    const auto bufferSize = Vec { size.x, size.y - 2 - getNumPromptOptions() };
+    // At least one line for the message
+    const auto promptHeight = currentPrompt ? std::max(1ul, getNumPromptOptions()) : 0;
+    const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
     auto drawCursor = drawBuffer(buffer, bufferSize, config);
     terminal::bufferWrite("\r\n");
 
@@ -345,11 +368,10 @@ std::optional<StatusMessage> Prompt::confirm()
     if (options_.empty()) {
         return callback_(input.getText().getString());
     } else {
-        if (selectedOption_ <= options_.size()) {
+        if (getNumMatchingOptions() > 0) {
             assert(options_[selectedOption_].score > 0);
             return callback_(options_[selectedOption_].str);
         }
-        // Probably no matching option
         return std::nullopt;
     }
 }

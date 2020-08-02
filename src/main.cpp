@@ -138,17 +138,19 @@ editor::Prompt saveFilePrompt()
     return prompt;
 }
 
+std::vector<std::string> commands { "FOO", "BAR", "BLUB", "TEST", "KACKEN", "PISSEN", "ENTE",
+    "BANANE", "WASSER" };
+
 editor::StatusMessage commandPaletteCallback(std::string_view input)
 {
-    if (input.empty())
-        return editor::StatusMessage { "Unknown command", editor::StatusMessage::Type::Error };
-    return editor::StatusMessage { std::string(input) };
+    const auto it = std::find(commands.begin(), commands.end(), std::string(input));
+    std::iter_swap(it, commands.end() - 1);
+    return editor::StatusMessage { commands.back() };
 }
 
 editor::Prompt commandPalettePrompt()
 {
-    return editor::Prompt { "> ", commandPaletteCallback,
-        { "FOO", "BAR", "BLUB", "TEST", "KACKEN", "PISSEN", "ENTE", "BANANE", "WASSER" } };
+    return editor::Prompt { "> ", commandPaletteCallback, commands };
 }
 
 void debugKey(const Key& key)
