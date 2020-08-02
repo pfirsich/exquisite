@@ -4,25 +4,19 @@
 #include <string>
 #include <vector>
 
-struct Command {
-    std::string name;
-    std::function<void()> func;
-
-    Command(std::string name, std::function<void()> func);
-    void operator()() const;
-};
+using CommandFunction = void();
+using Command = std::function<CommandFunction>;
 
 namespace commands {
-std::vector<const Command*>& all();
-
-extern Command quit;
-extern Command clearStatusLine;
-extern Command open;
-extern Command save;
-extern Command undo;
-extern Command redo;
-extern Command gotoFile;
-extern Command showCommandPalette;
-extern Command copy;
-extern Command paste;
+Command quit();
+Command clearStatusLine();
+Command openFile(std::string_view path = "");
+Command saveFile(std::string_view path = "");
+Command saveFileAs();
+Command undo();
+Command redo();
+Command gotoFile();
+Command showCommandPalette();
+Command copy();
+Command paste();
 }

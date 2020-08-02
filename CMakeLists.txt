@@ -22,6 +22,7 @@ set(SRC
   fuzzy.cpp
   key.cpp
   main.cpp
+  palette.cpp
   process.cpp
   terminal.cpp
   utf8.cpp

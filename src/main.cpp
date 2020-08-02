@@ -119,36 +119,36 @@ void processInput(const Key& key)
             if (!key.modifiers.test(Modifiers::Alt)) {
                 switch (seq->bytes[0]) {
                 case 'q':
-                    commands::quit();
+                    commands::quit()();
                 case 'l':
-                    commands::clearStatusLine();
+                    commands::clearStatusLine()();
                     break;
                 case 'o':
-                    commands::open();
+                    commands::openFile()();
                     break;
                 case 's':
-                    commands::save();
+                    commands::saveFile()();
                     break;
                 case 'z':
-                    commands::undo();
+                    commands::undo()();
                     break;
                 case 'p':
-                    commands::gotoFile();
+                    commands::gotoFile()();
                     break;
                 case 'c':
-                    commands::copy();
+                    commands::copy()();
                     break;
                 case 'v': {
-                    commands::paste();
+                    commands::paste()();
                 } break;
                 }
             } else {
                 switch (seq->bytes[0]) {
                 case 'z':
-                    commands::redo();
+                    commands::redo()();
                     break;
                 case 'p':
-                    commands::showCommandPalette();
+                    commands::showCommandPalette()();
                     break;
                 }
             }

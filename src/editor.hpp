@@ -57,6 +57,7 @@ void redraw();
 
 void setStatusMessage(
     const std::string& message, StatusMessage::Type type = StatusMessage::Type::Normal);
+void setStatusMessage(const StatusMessage& message);
 StatusMessage getStatusMessage();
 
 std::unique_ptr<Prompt>& getPrompt();

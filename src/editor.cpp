@@ -468,6 +468,11 @@ void setStatusMessage(const std::string& message, StatusMessage::Type type)
     statusMessage = StatusMessage { message, type };
 }
 
+void setStatusMessage(const StatusMessage& message)
+{
+    statusMessage = message;
+}
+
 StatusMessage getStatusMessage()
 {
     return statusMessage;

@@ -5,43 +5,21 @@
 #include "clipboard.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
+#include "palette.hpp"
 
 namespace fs = std::filesystem;
 
-Command::Command(std::string n, std::function<void()> f)
-    : name(std::move(n))
-    , func(f)
-{
-    commands::all().push_back(this);
-}
-
-void Command::operator()() const
-{
-    func();
-}
-
-// clang-format off
 namespace commands {
-std::vector<const Command*>& all() {
-    static std::vector<const Command*> cmd;
-    return cmd;
+Command quit()
+{
+    return []() { exit(0); };
 }
 
-Command quit {
-    "Quit",
-    // clang-format on
-    []() { exit(0); }
-    // clang-format off
+Command clearStatusLine()
+{
+    return []() { editor::setStatusMessage(""); };
 };
 
-Command clearStatusLine {
-    "Clear Status Line",
-    // clang-format on
-    []() { editor::setStatusMessage(""); }
-    // clang-format off
-};
-
-// clang-format on
 editor::StatusMessage openPromptCallback(std::string_view input)
 {
     if (!editor::buffer.readFromFile(fs::path(input))) {
@@ -49,18 +27,16 @@ editor::StatusMessage openPromptCallback(std::string_view input)
     }
     return editor::StatusMessage { "" };
 }
-// clang-format off
 
-Command open {
-    "Open",
-    // clang-format on
-    []() {
-        editor::setPrompt(editor::Prompt { "Open File> ", openPromptCallback });
+Command openFile(std::string_view path)
+{
+    if (path.empty()) {
+        return []() { editor::setPrompt(editor::Prompt { "Open File> ", openPromptCallback }); };
+    } else {
+        return [path = std::string(path)]() { editor::setStatusMessage(openPromptCallback(path)); };
     }
-    // clang-format off
 };
 
-// clang-format on
 editor::StatusMessage savePromptCallback(std::string_view input)
 {
     editor::buffer.setPath(fs::path(input));
@@ -69,43 +45,44 @@ editor::StatusMessage savePromptCallback(std::string_view input)
     }
     return editor::StatusMessage { "Saved to '" + std::string(input) + "'" };
 }
-// clang-format off
 
-Command save {
-    "Save",
-    // clang-format on
-    []() {
-        if (editor::buffer.path.empty()) {
-            editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback });
-        } else {
-            editor::buffer.save();
-            editor::setStatusMessage("Saved");
-        }
+Command saveFile(std::string_view path)
+{
+    if (path.empty()) {
+        return []() {
+            if (editor::buffer.path.empty()) {
+                editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback });
+            } else {
+                editor::buffer.save();
+                editor::setStatusMessage("Saved");
+            }
+        };
+    } else {
+        return [path = std::string(path)]() { editor::setStatusMessage(savePromptCallback(path)); };
     }
-    // clang-format off
-};
+}
 
-Command undo {
-    "Undo",
-    // clang-format on
-    []() {
+Command saveFileAs()
+{
+    return []() { editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback }); };
+}
+
+Command undo()
+{
+    return []() {
         if (!editor::buffer.undo())
             editor::setStatusMessage("Nothing to undo");
-    }
-    // clang-format off
-};
+    };
+}
 
-Command redo {
-    "Redo",
-    // clang-format on
-    []() {
+Command redo()
+{
+    return []() {
         if (!editor::buffer.redo())
             editor::setStatusMessage("Nothing to redo");
-    }
-    // clang-format off
-};
+    };
+}
 
-// clang-format on
 editor::StatusMessage gotoFileCallback(std::string_view input)
 {
     if (!editor::buffer.readFromFile(fs::path(input))) {
@@ -128,70 +105,56 @@ std::vector<std::string> walkDirectory()
     }
     return files;
 }
-// clang-format off
 
-Command gotoFile {
-    "Goto File",
-    // clang-format on
-    []() {
-        editor::setPrompt(editor::Prompt { "> ", gotoFileCallback, walkDirectory() });
-    }
-    // clang-format off
-};
+Command gotoFile()
+{
+    return []() { editor::setPrompt(editor::Prompt { "> ", gotoFileCallback, walkDirectory() }); };
+}
 
-// clang-format on
 editor::StatusMessage commandPaletteCallback(std::string_view input)
 {
-    const auto it = std::find_if(commands::all().begin(), commands::all().end(),
-        [input](const Command* cmd) { return cmd->name == input; });
-    std::iter_swap(it, commands::all().end() - 1);
-    debug("Command: ", commands::all().back()->name);
-    commands::all().back()->func();
+    auto& palette = getPalette();
+    const auto it = std::find_if(palette.begin(), palette.end(),
+        [input](const PaletteEntry& entry) { return entry.title == input; });
+    std::iter_swap(it, palette.end() - 1);
+    debug("Command: ", palette.back().title);
+    palette.back().command();
     return editor::StatusMessage {};
 }
-// clang-format off
 
-Command showCommandPalette {
-    "Show Command Palette",
-    // clang-format on
-    []() {
+Command showCommandPalette()
+{
+    return []() {
         std::vector<std::string> options;
-        for (const auto cmd : commands::all()) {
-            options.push_back(cmd->name);
+        for (const auto& cmd : getPalette()) {
+            options.push_back(cmd.title);
         }
         editor::setPrompt(editor::Prompt { "> ", commandPaletteCallback, options });
-    }
-    // clang-format off
-};
+    };
+}
 
-Command copy {
-    "Copy",
-    // clang-format on
-    []() {
+Command copy()
+{
+    return []() {
         if (!editor::buffer.getCursor().emptySelection()) {
             if (!setClipboardText(
                     editor::buffer.getText().getString(editor::buffer.getSelection()))) {
                 editor::setStatusMessage(
-                    "Could not set clipboard.", editor::StatusMessage::Type::Error);
+                    "Could not set clipboard", editor::StatusMessage::Type::Error);
             }
         }
-    }
-    // clang-format off
-};
+    };
+}
 
-Command paste {
-    "Paste",
-    // clang-format on
-    []() {
+Command paste()
+{
+    return []() {
         const auto clip = getClipboardText();
         if (clip) {
             editor::buffer.insert(*clip);
         } else {
-            editor::setStatusMessage(
-                "Could not get clipboard.", editor::StatusMessage::Type::Error);
+            editor::setStatusMessage("Could not get clipboard", editor::StatusMessage::Type::Error);
         }
-    }
-    // clang-format off
-};
+    };
 }
-// clang-format on
+}
