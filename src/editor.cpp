@@ -184,12 +184,12 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
             terminal::bufferWrite("\r\n");
     }
 
-    for (size_t y = lastLine + 1; y < size.y; ++y) {
+    for (size_t y = lastLine + 1; y < size.y + 1; ++y) {
         if (pos.x > 0)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
         terminal::bufferWrite("~");
         terminal::bufferWrite(control::clearLine);
-        if (y - (lastLine + 1) < size.y - 1)
+        if (y < size.y)
             terminal::bufferWrite("\r\n");
     }
 
