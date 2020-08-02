@@ -242,11 +242,46 @@ void Buffer::TextAction::undo()
     buffer->cursor_ = cursorBefore;
 }
 
+void Buffer::TextAction::merge(const Buffer::TextAction& other)
+{
+    // buffer, textBefore and cursorBefore remain unchanged
+    assert(offset != other.offset);
+    if (offset < other.offset) {
+        // offset unchanged
+        assert(other.offset == offset + textAfter.size());
+        textAfter.append(other.textAfter);
+    } else if (other.offset < offset) {
+        assert(offset == other.offset + other.textAfter.size());
+        offset = other.offset;
+        textAfter.insert(0, other.textAfter);
+    }
+    // cursorBefore unchanged as well
+    cursorAfter = other.cursorAfter;
+}
+
 void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
 {
-    const auto cursorMin = cursor_.min();
-    actions_.perform(TextAction { this, getOffset(cursorMin), text_.getString(getSelection()),
-        std::string(text), cursor_, cursorAfter });
+    const auto action = TextAction { this, getOffset(cursor_.min()),
+        text_.getString(getSelection()), std::string(text), cursor_, cursorAfter };
+
+    if (actions_.getSize() > 0) {
+        actions_.popRedoable(); // pop all other undone actions
+        auto& top = actions_.getTop(); // modify this later
+
+        // insert single char right after last insert and it's not
+        // whitespace (we want a separate undo after words or lines)
+        const bool mergeInsert = text.size() == 1 && !std::isspace(text[0])
+            && cursor_.emptySelection() && action.offset == top.offset + top.textAfter.size();
+
+        if (mergeInsert) {
+            debug("merge action");
+            actions_.undo(); // undo the action we want to merge
+            top.merge(action); // modify
+            actions_.redo(); // redo the modified action
+            return;
+        }
+    }
+    actions_.perform(action);
 }
 
 void Buffer::insert(std::string_view str)

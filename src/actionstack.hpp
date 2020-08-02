@@ -6,41 +6,40 @@
 template <typename Action>
 class ActionStack {
 public:
-    Action& getTop()
-    {
-        return actions_.back();
-    }
-
     template <typename... Args>
     void perform(Args&&... args)
     {
-        if (undidCount_ > 0) {
-            actions_.resize(actions_.size() - undidCount_);
-            undidCount_ = 0;
-        }
-
+        popRedoable();
         actions_.emplace_back(std::forward<Args>(args)...).perform();
     }
 
     bool undo()
     {
-        if (actions_.empty() || undidCount_ == actions_.size())
+        if (actions_.empty() || undoneCount_ == actions_.size())
             return false;
 
-        auto& action = actions_[actions_.size() - undidCount_ - 1];
+        auto& action = actions_[actions_.size() - undoneCount_ - 1];
         action.undo();
-        undidCount_++;
+        undoneCount_++;
         return true;
     }
 
     bool redo()
     {
-        if (undidCount_ == 0)
+        if (undoneCount_ == 0)
             return false;
-        auto& action = actions_[actions_.size() - undidCount_];
+        auto& action = actions_[actions_.size() - undoneCount_];
         action.perform();
-        undidCount_--;
+        undoneCount_--;
         return true;
+    }
+
+    void popRedoable()
+    {
+        if (undoneCount_ > 0) {
+            actions_.resize(actions_.size() - undoneCount_);
+            undoneCount_ = 0;
+        }
     }
 
     void clear()
@@ -48,7 +47,22 @@ public:
         actions_.clear();
     }
 
+    Action& getTop()
+    {
+        return actions_[actions_.size() - 1 - undoneCount_];
+    }
+
+    size_t getSize() const
+    {
+        return actions_.size() - undoneCount_;
+    }
+
+    size_t getUndoneCount() const
+    {
+        return undoneCount_;
+    }
+
 private:
-    size_t undidCount_ = 0;
+    size_t undoneCount_ = 0;
     std::deque<Action> actions_;
 };

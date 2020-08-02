@@ -108,6 +108,7 @@ private:
 
         void perform();
         void undo();
+        void merge(const TextAction& action);
     };
 
     void performAction(std::string_view text, const Cursor& cursorAfter);
