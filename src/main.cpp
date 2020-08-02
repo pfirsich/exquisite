@@ -28,10 +28,11 @@ bool processBufferInput(Buffer& buffer, const Key& key)
             buffer.moveCursorRight(select);
             return true;
         case SpecialKey::PageUp:
-            buffer.moveCursorY(-size.y - 1, select);
+            // I actually don't really know how much a page is here
+            buffer.moveCursorY(-(size.y - 3), select);
             return true;
         case SpecialKey::PageDown:
-            buffer.moveCursorY(size.y - 1, select);
+            buffer.moveCursorY(size.y - 3, select);
             return true;
         case SpecialKey::Home:
             buffer.moveCursorHome(select);
