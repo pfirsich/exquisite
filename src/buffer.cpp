@@ -26,6 +26,12 @@ char TextBuffer::operator[](size_t offset) const
     return data_[offset];
 }
 
+std::string TextBuffer::getString(const Range& range) const
+{
+    assert(range.offset + range.length <= data_.size());
+    return std::string(data_.data() + range.offset, range.length);
+}
+
 std::string TextBuffer::getString() const
 {
     return std::string(data_.data(), data_.size());

@@ -17,6 +17,7 @@ public:
     size_t getSize() const;
 
     char operator[](size_t offset) const;
+    std::string getString(const Range& range) const;
     std::string getString() const;
 
     size_t getLineCount() const;

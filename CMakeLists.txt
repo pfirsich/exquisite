@@ -13,11 +13,13 @@ endif()
 
 set(SRC
   buffer.cpp
+  clipboard.cpp
   config.cpp
   control.cpp
   editor.cpp
-  main.cpp
   key.cpp
+  main.cpp
+  process.cpp
   terminal.cpp
   utf8.cpp
   util.cpp

@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "clipboard.hpp"
 #include "control.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
@@ -184,26 +185,46 @@ void processInput(const Key& key)
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        if (key.modifiers.test(Modifiers::Ctrl) && !key.modifiers.test(Modifiers::Alt)) {
-            switch (seq->bytes[0]) {
-            case 'q':
-                terminal::write(control::clear);
-                terminal::write(control::resetCursor);
-                exit(0);
-            case 'l':
-                editor::setStatusMessage("");
-                break;
-            case 'o':
-                editor::currentPrompt = std::make_unique<editor::Prompt>(
-                    editor::Prompt { "Open File> ", openFilePromptCallback });
-                break;
-            case 's':
-                editor::currentPrompt = saveFilePrompt();
-                break;
-            case 'p':
-                editor::currentPrompt = std::make_unique<editor::Prompt>(
-                    editor::Prompt { "Insert Text> ", insertTextPromptCallback });
-                break;
+        if (key.modifiers.test(Modifiers::Ctrl)) {
+            if (!key.modifiers.test(Modifiers::Alt)) {
+                switch (seq->bytes[0]) {
+                case 'q':
+                    terminal::write(control::clear);
+                    terminal::write(control::resetCursor);
+                    exit(0);
+                case 'l':
+                    editor::setStatusMessage("");
+                    break;
+                case 'o':
+                    editor::currentPrompt = std::make_unique<editor::Prompt>(
+                        editor::Prompt { "Open File> ", openFilePromptCallback });
+                    break;
+                case 's':
+                    editor::currentPrompt = saveFilePrompt();
+                    break;
+                case 'p':
+                    editor::currentPrompt = std::make_unique<editor::Prompt>(
+                        editor::Prompt { "Insert Text> ", insertTextPromptCallback });
+                    break;
+                case 'c':
+                    if (!editor::buffer.getCursor().emptySelection()) {
+                        if (!setClipboardText(editor::buffer.getText().getString(
+                                editor::buffer.getSelection()))) {
+                            editor::setStatusMessage(
+                                "Could not set clipboard.", editor::StatusMessage::Type::Error);
+                        }
+                    }
+                    break;
+                case 'v': {
+                    const auto clip = getClipboardText();
+                    if (clip) {
+                        editor::buffer.insert(*clip);
+                    } else {
+                        editor::setStatusMessage(
+                            "Could not get clipboard.", editor::StatusMessage::Type::Error);
+                    }
+                } break;
+                }
             }
         }
     } else {

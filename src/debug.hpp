@@ -6,8 +6,6 @@
 #include <string>
 #include <string_view>
 
-#include "util.hpp"
-
 template <typename... Args>
 std::string stringify(Args&&... args)
 {
@@ -20,6 +18,7 @@ template <typename... Args>
 void debug(Args&&... args)
 {
     const auto str = stringify(std::forward<Args>(args)..., "\n");
-    auto f = uniqueFopen("debug.log", "a");
+    // I don't use the function from util.hpp here, so this file is self-contained
+    auto f = std::unique_ptr<FILE, decltype(&fclose)>(fopen("debug.log", "a"), &fclose);
     fwrite(str.data(), 1, str.size(), f.get());
 }

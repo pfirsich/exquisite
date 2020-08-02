@@ -114,8 +114,6 @@ Vec drawBuffer(Buffer& buf, const Vec& size, bool showLineNumbers)
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
 
             const bool selected = selection.contains(i);
-            if (selected)
-                debug("selected: ", ch);
             invert.set(selected);
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
