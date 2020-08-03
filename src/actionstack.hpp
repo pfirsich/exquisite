@@ -9,7 +9,7 @@ public:
     void perform(Action&& action, bool groupedWithPrev = false)
     {
         popRedoable();
-        actions_.push_back(Element { std::move(action), groupedWithPrev });
+        actions_.push_back(Element { std::move(action), ++versionIdCounter_, groupedWithPrev });
         actions_.back().action.perform();
     }
 
@@ -59,16 +59,22 @@ public:
     void clear()
     {
         actions_.clear();
+        versionIdCounter_ = 0;
     }
 
     const Action& getTop() const
     {
-        return actions_[actions_.size() - 1 - undoneCount_].action;
+        return actions_[getSize() - 1].action;
     }
 
     Action& getTop()
     {
-        return actions_[actions_.size() - 1 - undoneCount_].action;
+        return actions_[getSize() - 1].action;
+    }
+
+    size_t getCurrentVersionId() const
+    {
+        return getSize() > 0 ? actions_[getSize() - 1].versionId : 0;
     }
 
     size_t getSize() const
@@ -79,9 +85,12 @@ public:
 private:
     struct Element {
         Action action;
+        size_t versionId;
         bool groupedWithPrev;
     };
 
+    // Version 0 is assigned to the state before any actions were performed
+    size_t versionIdCounter_ = 0;
     size_t undoneCount_ = 0;
     std::deque<Element> actions_;
 };

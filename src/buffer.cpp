@@ -226,6 +226,7 @@ void Buffer::setText(std::string_view str)
     actions_.clear();
     cursor_ = Cursor {};
     scroll_ = 0;
+    savedVersionId_ = std::numeric_limits<size_t>::max();
 }
 
 bool Buffer::readFromFile(const fs::path& p)
@@ -235,6 +236,7 @@ bool Buffer::readFromFile(const fs::path& p)
         return false;
     setText(*data);
     setPath(p);
+    savedVersionId_ = actions_.getCurrentVersionId();
     return true;
 }
 
@@ -246,7 +248,7 @@ void Buffer::readFromStdin()
     path = "";
 }
 
-bool Buffer::save() const
+bool Buffer::save()
 {
     assert(!path.empty());
     FILE* f = fopen(path.c_str(), "wb");
@@ -263,7 +265,13 @@ bool Buffer::save() const
         debug("Could not close file");
         return false;
     }
+    savedVersionId_ = actions_.getCurrentVersionId();
     return true;
+}
+
+bool Buffer::isModified() const
+{
+    return actions_.getCurrentVersionId() != savedVersionId_;
 }
 
 void Buffer::TextAction::perform() const

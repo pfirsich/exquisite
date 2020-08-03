@@ -79,7 +79,8 @@ public:
     void setText(std::string_view str);
     bool readFromFile(const fs::path& path);
     void readFromStdin();
-    bool save() const;
+    bool save();
+    bool isModified() const;
 
     const TextBuffer& getText() const;
     void insert(std::string_view str);
@@ -125,6 +126,7 @@ private:
 
     TextBuffer text_;
     ActionStack<TextAction> actions_;
+    size_t savedVersionId_ = std::numeric_limits<size_t>::max();
     Cursor cursor_;
     size_t scroll_ = 0; // in lines
 };

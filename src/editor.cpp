@@ -208,7 +208,7 @@ void drawStatusBar(const Vec& terminalSize)
 
     std::string status;
     status.reserve(terminalSize.x);
-    status.append(buffer.name);
+    status.append(" "s + (buffer.isModified() ? "*"s : ""s) + buffer.name);
     status.append(terminalSize.x - lines.size() - status.size(), ' ');
     status.append(lines);
 

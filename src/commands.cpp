@@ -11,9 +11,23 @@
 namespace fs = std::filesystem;
 
 namespace commands {
+editor::StatusMessage quitPromptCallback(std::string_view input)
+{
+    if (std::tolower(input[0]) == 'y') { // works with "yeet" in particular
+        exit(0);
+    }
+    return editor::StatusMessage { "" };
+}
+
 Command quit()
 {
-    return []() { exit(0); };
+    return []() {
+        if (!editor::buffer.isModified())
+            exit(0);
+
+        editor::setPrompt(
+            editor::Prompt { "Unsaved Changes! Really quit [y/n]?> ", quitPromptCallback });
+    };
 }
 
 Command clearStatusLine()
