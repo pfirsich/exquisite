@@ -1,0 +1,22 @@
+name: continuous-integration
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Update
+      run: sudo apt-get update
+    - name: Install Dependencies
+      run: |
+        sudo apt-get install --assume-yes build-essential ninja-build cmake clang-10
+    - name: Configure # I use Debug here for now, because only I use it. Later -> RelWithDebInfo
+      run: mkdir build && cd build && cmake -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug ..
+    - name: Build
+      run: cd build && ninja
+    - name: Artifact
+      uses: actions/upload-artifact@v2-preview
+      with:
+        name: exquisite
+        path: build/exquisite
