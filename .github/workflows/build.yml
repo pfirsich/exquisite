@@ -12,7 +12,10 @@ jobs:
       run: |
         sudo apt-get install --assume-yes build-essential ninja-build cmake clang-10
     - name: Configure # I use Debug here for now, because only I use it. Later -> RelWithDebInfo
-      run: mkdir build && cd build && cmake -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug ..
+      run: |
+        mkdir build
+        cd build
+        cmake -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_CXX_COMPILER=clang++-10 ..
     - name: Build
       run: cd build && ninja
     - name: Artifact
