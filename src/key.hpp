@@ -35,6 +35,7 @@ struct Utf8Sequence {
     char32_t getCodePoint() const;
 
     bool operator==(char c) const;
+    bool operator==(const Utf8Sequence& other) const;
 };
 
 enum class Modifiers { Ctrl, Alt, Shift };
@@ -49,6 +50,10 @@ struct Key {
     Key(const std::vector<char>& bytes, Bitmask<Modifiers> modifiers, SpecialKey key);
     Key(const std::vector<char>& bytes, char key); // other chars
     Key(const std::vector<char>& bytes, Bitmask<Modifiers> modifiers, char key);
+
+    Key(Bitmask<Modifiers>, char key); // This is just to put into a shortcut
+
+    bool operator==(const Key& other) const;
 };
 
 template <>

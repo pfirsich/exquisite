@@ -11,6 +11,7 @@
 #include "commands.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
+#include "shortcuts.hpp"
 #include "terminal.hpp"
 #include "util.hpp"
 
@@ -115,42 +116,10 @@ void processInput(const Key& key)
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        if (key.modifiers.test(Modifiers::Ctrl)) {
-            if (!key.modifiers.test(Modifiers::Alt)) {
-                switch (seq->bytes[0]) {
-                case 'q':
-                    commands::quit()();
-                case 'l':
-                    commands::clearStatusLine()();
-                    break;
-                case 'o':
-                    commands::openFile()();
-                    break;
-                case 's':
-                    commands::saveFile()();
-                    break;
-                case 'z':
-                    commands::undo()();
-                    break;
-                case 'p':
-                    commands::gotoFile()();
-                    break;
-                case 'c':
-                    commands::copy()();
-                    break;
-                case 'v': {
-                    commands::paste()();
-                } break;
-                }
-            } else {
-                switch (seq->bytes[0]) {
-                case 'z':
-                    commands::redo()();
-                    break;
-                case 'p':
-                    commands::showCommandPalette()();
-                    break;
-                }
+        for (const auto& shortcut : getShortcuts()) {
+            if (shortcut.key == key) {
+                shortcut.command();
+                break;
             }
         }
     } else {

@@ -61,6 +61,11 @@ bool Utf8Sequence::operator==(char c) const
     return length == 1 && bytes[0] == c;
 }
 
+bool Utf8Sequence::operator==(const Utf8Sequence& other) const
+{
+    return length == other.length && std::memcmp(&bytes[0], &other.bytes[0], length) == 0;
+}
+
 Key::Key(const std::vector<char>& b)
     : bytes(b)
     , modifiers()
@@ -94,4 +99,30 @@ Key::Key(const std::vector<char>& b, Bitmask<Modifiers> m, char k)
     , modifiers(m)
     , key(Utf8Sequence(k))
 {
+}
+
+Key::Key(Bitmask<Modifiers> m, char k)
+    : bytes()
+    , modifiers(m)
+    , key(Utf8Sequence(k))
+{
+}
+
+bool Key::operator==(const Key& other) const
+{
+    if (modifiers != other.modifiers)
+        return false;
+
+    if (const auto special = std::get_if<SpecialKey>(&key)) {
+        if (const auto oSpecial = std::get_if<SpecialKey>(&other.key)) {
+            return *special == *oSpecial;
+        }
+        return false;
+    } else if (const auto seq = std::get_if<Utf8Sequence>(&key)) {
+        if (const auto oSeq = std::get_if<Utf8Sequence>(&other.key)) {
+            return *seq == *oSeq;
+        }
+        return false;
+    }
+    assert(false && "Invalid variant state");
 }

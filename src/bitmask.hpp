@@ -84,6 +84,16 @@ public:
         return *this;
     }
 
+    constexpr bool operator==(Bitmask other) const
+    {
+        return mask_ == other.mask_;
+    }
+
+    constexpr bool operator!=(Bitmask other) const
+    {
+        return mask_ != other.mask_;
+    }
+
 private:
     Underlying mask_ = 0;
 };
