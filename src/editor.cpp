@@ -114,7 +114,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         for (size_t i = line.offset; i < lineEndIndex; ++i) {
             const auto ch = text[i];
 
-            const bool charInFrontOfCursor = i < line.offset + buf.getX(cursor);
+            const bool charInFrontOfCursor = i < line.offset + buf.getCursorX(cursor);
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
 
             const bool selected = selection.contains(i);

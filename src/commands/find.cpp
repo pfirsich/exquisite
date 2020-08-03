@@ -31,7 +31,7 @@ FindResult editorFind(std::string_view input, FindMode mode = FindMode::Normal)
         return FindResult {};
 
     const auto& text = editor::buffer.getText();
-    const auto cursorPos = editor::buffer.getOffset(editor::buffer.getCursor().start)
+    const auto cursorPos = editor::buffer.getCursorOffset(editor::buffer.getCursor().start)
         + (mode == FindMode::Next ? 1 : 0); // hack?
     FindResult res;
     Range first, last, prev, current; // current is starting from cursor

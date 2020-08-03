@@ -28,10 +28,6 @@ public:
     Range getLine(LineIndex idx) const;
     LineIndex getLineIndex(size_t offset) const;
 
-    // TODO: Custom iterator
-    // A buffer range may be split up in memory and going character by character may be inefficient
-    std::vector<std::string_view> getStrings(const Range& range);
-
     void set(std::string_view str);
     void insert(size_t offset, std::string_view str);
     void remove(const Range& range);
@@ -70,6 +66,8 @@ struct Cursor {
     void set(const End& pos);
 };
 
+// I kinda want to split this class (into an EditBuffer that is just a TextBuffer + Cursor)
+// but a bunch of stuff gets weird then and I don't really know how to do it nicely.
 class Buffer {
 public:
     std::string name;
@@ -90,8 +88,8 @@ public:
     void deleteForwards();
 
     const Cursor& getCursor() const;
-    size_t getX(const Cursor::End& cursorEnd) const;
-    size_t getOffset(const Cursor::End& cursorEnd) const;
+    size_t getCursorX(const Cursor::End& cursorEnd) const;
+    size_t getCursorOffset(const Cursor::End& cursorEnd) const;
     Range getSelection() const;
 
     void select(const Range& range); // can use range.length = 0 to set cursor pos
@@ -120,7 +118,6 @@ private:
 
         void perform() const;
         void undo() const;
-        void merge(const TextAction& action);
     };
 
     bool shouldMerge(const TextAction& action) const;

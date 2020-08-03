@@ -40,18 +40,6 @@ std::string TextBuffer::getString() const
     return std::string(data_.data(), data_.size());
 }
 
-// TODO: Custom iterator
-// (Pointer, length) tuples
-std::vector<std::string_view> TextBuffer::getStrings(const Range& range)
-{
-    assert(range.offset < getSize());
-    std::vector<std::string_view> strs;
-    const char* ptr = data_.data() + range.offset;
-    const size_t length = std::min(range.length, data_.size() - range.offset);
-    strs.push_back(std::string_view(ptr, length));
-    return strs;
-}
-
 void TextBuffer::set(std::string_view str)
 {
     data_ = std::vector<char>(str.data(), str.data() + str.size());
@@ -316,8 +304,8 @@ bool Buffer::shouldMerge(const TextAction& action) const
 
 void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
 {
-    auto action = TextAction { this, getOffset(cursor_.min()), text_.getString(getSelection()),
-        std::string(text), cursor_, cursorAfter };
+    auto action = TextAction { this, getCursorOffset(cursor_.min()),
+        text_.getString(getSelection()), std::string(text), cursor_, cursorAfter };
     actions_.perform(std::move(action), shouldMerge(action));
 }
 
@@ -335,7 +323,7 @@ void Buffer::insert(std::string_view str)
         assert(nl != std::string_view::npos);
         cursorAfter.setX(str.size() - nl - 1, false);
     } else {
-        cursorAfter.setX(getX(cursorAfter.start) + str.size(), false);
+        cursorAfter.setX(getCursorX(cursorAfter.start) + str.size(), false);
     }
     performAction(str, cursorAfter);
 }
@@ -372,21 +360,21 @@ void Buffer::deleteForwards()
     actions_.getTop().cursorBefore = cursorBefore;
 }
 
-size_t Buffer::getX(const Cursor::End& cursorEnd) const
+size_t Buffer::getCursorX(const Cursor::End& cursorEnd) const
 {
     // Treat cursor past the end of the line as positioned at the end of the line
     return std::min(text_.getLine(cursorEnd.y).length, cursorEnd.x);
 }
 
-size_t Buffer::getOffset(const Cursor::End& cursorEnd) const
+size_t Buffer::getCursorOffset(const Cursor::End& cursorEnd) const
 {
-    return text_.getLine(cursorEnd.y).offset + getX(cursorEnd);
+    return text_.getLine(cursorEnd.y).offset + getCursorX(cursorEnd);
 }
 
 Range Buffer::getSelection() const
 {
-    auto startOffset = getOffset(cursor_.start);
-    auto endOffset = getOffset(cursor_.end);
+    auto startOffset = getCursorOffset(cursor_.start);
+    auto endOffset = getCursorOffset(cursor_.end);
     if (endOffset < startOffset)
         std::swap(startOffset, endOffset);
     return Range { startOffset, endOffset - startOffset };
@@ -431,7 +419,7 @@ void Buffer::moveCursorRight(bool select)
         return;
 
     // Skip one newline if it's there
-    if (text_[line.offset + getX(cursor_.start)] == '\n') {
+    if (text_[line.offset + getCursorX(cursor_.start)] == '\n') {
         moveCursorY(1, select);
         cursor_.setX(0, select);
         debug("skip newline");
@@ -511,7 +499,6 @@ void Buffer::moveCursorY(int dy, bool select)
 
 void Buffer::scroll(size_t terminalHeight)
 {
-
     if (cursor_.start.y < scroll_)
         scroll_ = cursor_.start.y;
     else if (cursor_.start.y - scroll_ >= terminalHeight)
