@@ -75,14 +75,7 @@ public:
     std::string name;
     fs::path path;
 
-    const TextBuffer& getText() const;
-    const Cursor& getCursor() const;
-    size_t getScroll() const;
-
     // This will return the cursorX position clamped to the line length
-    size_t getX(const Cursor::End& cursorEnd) const;
-    size_t getOffset(const Cursor::End& cursorEnd) const;
-    Range getSelection() const;
 
     void setPath(const fs::path& path);
     void setText(std::string_view str);
@@ -90,16 +83,25 @@ public:
     void readFromStdin();
     bool save() const;
 
+    const TextBuffer& getText() const;
     void insert(std::string_view str);
     void deleteSelection();
     void deleteBackwards();
     void deleteForwards();
 
+    const Cursor& getCursor() const;
+    size_t getX(const Cursor::End& cursorEnd) const;
+    size_t getOffset(const Cursor::End& cursorEnd) const;
+    Range getSelection() const;
+
+    void select(const Range& range); // can use range.length = 0 to set cursor pos
     void moveCursorHome(bool select);
     void moveCursorEnd(bool select);
     void moveCursorLeft(bool select);
     void moveCursorRight(bool select);
     void moveCursorY(int dy, bool select);
+
+    size_t getScroll() const;
     void scroll(size_t terminalHeight);
 
     void startUndoTransaction();

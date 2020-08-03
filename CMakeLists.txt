@@ -16,6 +16,7 @@ set(SRC
   src/clipboard.cpp
   src/colors.cpp
   src/commands.cpp
+  src/commands/find.cpp
   src/config.cpp
   src/control.cpp
   src/editor.cpp

@@ -392,6 +392,18 @@ Range Buffer::getSelection() const
     return Range { startOffset, endOffset - startOffset };
 }
 
+void Buffer::select(const Range& range)
+{
+    const auto end = range.offset + range.length;
+    const auto startLineIndex = text_.getLineIndex(range.offset);
+    const auto startLine = text_.getLine(startLineIndex);
+    const auto endLineIndex = text_.getLineIndex(end);
+    const auto endLine = text_.getLine(text_.getLineIndex(end));
+    assert(range.offset >= startLine.offset);
+    cursor_.start = Vec { range.offset - startLine.offset, startLineIndex };
+    cursor_.end = Vec { end - endLine.offset, endLineIndex };
+}
+
 void Buffer::moveCursorHome(bool select)
 {
     cursor_.setX(0, select);

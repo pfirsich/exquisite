@@ -23,6 +23,9 @@ inline std::vector<Shortcut>& getShortcuts()
         { Key(Modifiers::Ctrl, 'v'), commands::paste() },
         { Key(Modifiers::Ctrl, 'p'), commands::gotoFile() },
         { Key(Modifiers::Ctrl | Modifiers::Alt, 'p'), commands::showCommandPalette() },
+        { Key(Modifiers::Ctrl, 'f'), commands::find() },
+        { Key(Modifiers::Ctrl, 'n'), commands::findNext() },
+        { Key(Modifiers::Ctrl | Modifiers::Alt, 'n'), commands::findPrev() },
     };
     return shortcuts;
 }

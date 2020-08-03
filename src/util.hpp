@@ -12,7 +12,8 @@ namespace fs = std::filesystem;
 
 struct Vec {
     // for terminal cells 0, 0 is top left
-    size_t x, y;
+    size_t x = 0;
+    size_t y = 0;
 
     bool operator==(const Vec& other) const
     {
@@ -21,8 +22,8 @@ struct Vec {
 };
 
 struct Range {
-    size_t offset;
-    size_t length;
+    size_t offset = 0;
+    size_t length = 0;
 
     bool contains(size_t index) const
     {

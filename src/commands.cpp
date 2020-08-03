@@ -1,5 +1,6 @@
 #include "commands.hpp"
 
+#include <cassert>
 #include <filesystem>
 
 #include "clipboard.hpp"

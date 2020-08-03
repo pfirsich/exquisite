@@ -25,18 +25,21 @@ public:
         std::vector<size_t> matchedCharacters = {};
     };
 
-    using Callback = StatusMessage(std::string_view input);
+    using ConfirmCallback = StatusMessage(std::string_view input);
+    using UpdateCallback = std::string(Prompt* prompt);
 
     Buffer input;
+    std::string prompt;
 
-    Prompt(std::string_view prompt, std::function<Callback> callback,
-        const std::vector<std::string>& options = {});
-
-    const std::string& getPrompt() const;
+    Prompt(std::string_view prompt, std::function<ConfirmCallback> confirmCallback,
+        const std::vector<std::string>& options);
+    Prompt(std::string_view prompt, std::function<ConfirmCallback> confirmCallback,
+        std::function<UpdateCallback> updateCallback = nullptr);
 
     size_t getNumMatchingOptions() const;
     const std::vector<Option>& getOptions() const;
     size_t getSelectedOption() const;
+    const std::string& getUpdateMessage() const;
 
     void update();
     std::optional<StatusMessage> confirm();
@@ -44,8 +47,10 @@ public:
     void selectDown();
 
 private:
-    std::string prompt_;
-    std::function<Callback> callback_;
+    std::function<ConfirmCallback> confirmCallback_;
+    std::function<UpdateCallback> updateCallback_ = nullptr;
+    // A message that can be returned by the update callback and will be displayed above the prompt
+    std::string updateMessage_;
     std::vector<Option> options_;
     // This always points at a matching option. If there are no (matching) options, it's 0
     size_t selectedOption_ = 0;

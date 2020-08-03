@@ -156,6 +156,10 @@ void processPromptInput(const Key& key)
             break;
         }
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
+        if (key == Key(Modifiers::Ctrl, 'c')) {
+            prompt->input.setText("");
+            prompt->update();
+        }
     } else {
         die("Invalid Key variant");
     }

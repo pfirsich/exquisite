@@ -31,9 +31,9 @@ namespace {
     }
 
     template <typename Value = size_t>
-    class TerminalState {
+    class LazyTerminalState {
     public:
-        TerminalState(const std::vector<std::string>& values, Value initial = {})
+        LazyTerminalState(const std::vector<std::string>& values, Value initial = {})
             : values_(values)
             , current_(initial)
         {
@@ -71,9 +71,9 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
     assert(firstLine <= lineCount - 1);
 
-    TerminalState<bool> faint(
+    LazyTerminalState<bool> faint(
         { std::string(control::sgr::resetIntensity), std::string(control::sgr::faint) });
-    TerminalState<bool> invert(
+    LazyTerminalState<bool> invert(
         { std::string(control::sgr::resetInvert), std::string(control::sgr::invert) });
 
     // Always make space for at least 3 digits
@@ -235,7 +235,7 @@ Vec drawPrompt(const Vec& terminalSize)
             selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
 
         enum Background { Normal = 0, Selected, Highlight };
-        TerminalState<Background> background({
+        LazyTerminalState<Background> background({
             std::string(control::sgr::resetBgColor),
             control::sgr::bgColor(colorScheme.highlightLine),
             control::sgr::bgColor(colorScheme.matchHighlightColor),
@@ -285,9 +285,13 @@ Vec drawPrompt(const Vec& terminalSize)
         terminal::bufferWrite("No matches");
         terminal::bufferWrite(control::clearLine);
         terminal::bufferWrite("\r\n");
+    } else if (!currentPrompt->getUpdateMessage().empty()) {
+        terminal::bufferWrite(currentPrompt->getUpdateMessage());
+        terminal::bufferWrite(control::clearLine);
+        terminal::bufferWrite("\r\n");
     }
 
-    const auto prompt = currentPrompt->getPrompt();
+    const auto& prompt = currentPrompt->prompt;
     terminal::bufferWrite(prompt);
     assert(currentPrompt->input.getText().getLineCount() == 1);
     Config promptConfig = config;
@@ -305,10 +309,18 @@ void redraw()
     terminal::bufferWrite(control::resetCursor);
 
     const auto size = terminal::getSize();
-    // At least one line for "No matches" if there are options
-    const auto promptHeight = currentPrompt
-        ? std::max(currentPrompt->getOptions().size() > 0 ? 1ul : 0ul, getNumPromptOptions())
-        : 0;
+    // At least one line for "No matches" if there are options and maybe an update message
+    const auto promptHeight = []() {
+        if (currentPrompt) {
+            if (!currentPrompt->getOptions().empty()) {
+                // At least one line for "No matches" if there are options
+                return std::max(1ul, getNumPromptOptions());
+            }
+            // Maybe an update message
+            return !currentPrompt->getUpdateMessage().empty() ? 1ul : 0ul;
+        }
+        return 0ul;
+    }();
     const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
     auto drawCursor = drawBuffer(buffer, bufferSize, config);
     terminal::bufferWrite("\r\n");
@@ -335,15 +347,23 @@ void redraw()
     terminal::flushWrite();
 }
 
-Prompt::Prompt(std::string_view prompt, std::function<Callback> callback,
+Prompt::Prompt(std::string_view prompt, std::function<ConfirmCallback> confirmCallback,
     const std::vector<std::string>& options)
-    : prompt_(prompt)
-    , callback_(callback)
+    : prompt(prompt)
+    , confirmCallback_(confirmCallback)
 {
     for (size_t i = 0; i < options.size(); ++i)
         options_.push_back(Option { i, options[i] });
     if (!options_.empty())
         selectedOption_ = options_.size() - 1;
+}
+
+Prompt::Prompt(std::string_view prompt, std::function<ConfirmCallback> confirmCallback,
+    std::function<UpdateCallback> updateCallback)
+    : prompt(prompt)
+    , confirmCallback_(confirmCallback)
+    , updateCallback_(updateCallback)
+{
 }
 
 void Prompt::update()
@@ -368,16 +388,19 @@ void Prompt::update()
         const auto anyMatching = !options_.empty() && options_.back().score > 0;
         selectedOption_ = anyMatching ? options_.size() - 1 : 0;
     }
+
+    if (updateCallback_)
+        updateMessage_ = updateCallback_(this);
 }
 
 std::optional<StatusMessage> Prompt::confirm()
 {
     if (options_.empty()) {
-        return callback_(input.getText().getString());
+        return confirmCallback_(input.getText().getString());
     } else {
         if (getNumMatchingOptions() > 0) {
             assert(options_[selectedOption_].score > 0);
-            return callback_(options_[selectedOption_].str);
+            return confirmCallback_(options_[selectedOption_].str);
         }
         return std::nullopt;
     }
@@ -413,11 +436,6 @@ void Prompt::selectDown()
     }
 }
 
-const std::string& Prompt::getPrompt() const
-{
-    return prompt_;
-}
-
 size_t Prompt::getNumMatchingOptions() const
 {
     return std::count_if(
@@ -432,6 +450,11 @@ const std::vector<Prompt::Option>& Prompt::getOptions() const
 size_t Prompt::getSelectedOption() const
 {
     return selectedOption_;
+}
+
+const std::string& Prompt::getUpdateMessage() const
+{
+    return updateMessage_;
 }
 
 std::unique_ptr<Prompt>& getPrompt()
