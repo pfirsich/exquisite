@@ -57,7 +57,7 @@ namespace {
 
 Buffer buffer;
 
-Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
+Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& config)
 {
     terminal::bufferWrite(control::sgr::reset);
 
@@ -82,8 +82,7 @@ Vec drawBuffer(Buffer& buf, const Vec& size, const Config& config)
     const size_t lineNumWidth = config.showLineNumbers ? lineNumDigits + 2 : 0;
     const auto textWidth = subClamp(size.x, lineNumWidth);
 
-    terminal::flushWrite();
-    const auto pos = terminal::getCursorPosition();
+    terminal::bufferWrite(control::moveCursor(pos));
     const auto cursor = buf.getCursor().start;
     auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + cursor.y - buf.getScroll() };
 
@@ -297,8 +296,9 @@ Vec drawPrompt(const Vec& terminalSize)
     Config promptConfig = config;
     promptConfig.showLineNumbers = false;
     promptConfig.highlightCurrentLine = false;
-    const auto drawCursor
-        = drawBuffer(currentPrompt->input, Vec { terminalSize.x - prompt.size(), 1 }, promptConfig);
+    const auto pos = Vec { prompt.size(), terminalSize.y - 1 };
+    const auto size = Vec { terminalSize.x - prompt.size(), 1 };
+    const auto drawCursor = drawBuffer(currentPrompt->input, pos, size, promptConfig);
     terminal::bufferWrite(control::clearLine);
     return drawCursor;
 }
@@ -322,7 +322,7 @@ void redraw()
         return 0ul;
     }();
     const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
-    auto drawCursor = drawBuffer(buffer, bufferSize, config);
+    auto drawCursor = drawBuffer(buffer, Vec { 0, 0 }, bufferSize, config);
     terminal::bufferWrite("\r\n");
 
     drawStatusBar(size);
