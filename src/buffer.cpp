@@ -494,7 +494,11 @@ void Buffer::moveCursorLeft(bool select)
 
 void Buffer::moveCursorY(int dy, bool select)
 {
-    debug("move cursor y ", dy);
+    assert(dy != 0);
+    if (!cursor_.emptySelection() && !select) {
+        cursor_.set(dy > 0 ? cursor_.max() : cursor_.min());
+    }
+
     if (dy > 0) {
         cursor_.setY(std::min(text_.getLineCount() - 1, cursor_.start.y + dy), select);
     } else if (dy < 0) {
@@ -503,7 +507,6 @@ void Buffer::moveCursorY(int dy, bool select)
         else
             cursor_.setY(0, select);
     }
-    debug("cursor: ", cursor_.start.x, ", ", cursor_.start.y);
 }
 
 void Buffer::scroll(size_t terminalHeight)
