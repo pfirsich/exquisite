@@ -73,7 +73,7 @@ public:
     std::string name;
     fs::path path;
 
-    // This will return the cursorX position clamped to the line length
+    Buffer();
 
     void setPath(const fs::path& path);
     void setText(std::string_view str);
@@ -89,6 +89,7 @@ public:
     void deleteForwards();
 
     const Cursor& getCursor() const;
+    // This will return the cursorX position clamped to the line length
     size_t getCursorX(const Cursor::End& cursorEnd) const;
     size_t getCursorOffset(const Cursor::End& cursorEnd) const;
     Range getSelection() const;

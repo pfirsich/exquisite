@@ -199,6 +199,12 @@ void Cursor::set(const End& pos)
 
 ///////////////////////////////////////////// Buffer
 
+Buffer::Buffer()
+    // Consider an uninitialized buffer not modified
+    : savedVersionId_(actions_.getCurrentVersionId())
+{
+}
+
 const TextBuffer& Buffer::getText() const
 {
     return text_;
