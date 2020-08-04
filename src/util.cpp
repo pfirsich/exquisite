@@ -36,11 +36,16 @@ std::optional<std::string> readFile(const fs::path& path)
     auto f = uniqueFopen(path.c_str(), "rb");
     if (!f)
         return std::nullopt;
-    fseek(f.get(), 0, SEEK_END);
+    if (fseek(f.get(), 0, SEEK_END) != 0)
+        return std::nullopt;
     const auto size = ftell(f.get());
-    fseek(f.get(), 0, SEEK_SET);
+    if (size < 0)
+        return std::nullopt;
+    if (fseek(f.get(), 0, SEEK_SET) != 0)
+        return std::nullopt;
     std::string buf(size, '\0');
-    fread(buf.data(), 1, size, f.get());
+    if (fread(buf.data(), 1, size, f.get()) != static_cast<size_t>(size))
+        return std::nullopt;
     return buf;
 }
 
