@@ -4,7 +4,7 @@
 #include <cmath>
 #include <string_view>
 
-using namespace std::literals;
+#include <unistd.h>
 
 #include "config.hpp"
 #include "control.hpp"
@@ -13,6 +13,8 @@ using namespace std::literals;
 #include "terminal.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
+
+using namespace std::literals;
 
 namespace editor {
 namespace {
@@ -204,11 +206,13 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
 void drawStatusBar(const Vec& terminalSize)
 {
+    static const auto pid = getpid();
     std::stringstream ss;
     const auto lang = buffer.getLanguage();
     if (lang)
-        ss << lang->name << "    ";
-    ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << ' ';
+        ss << lang->name << "  ";
+    ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << "  [" << pid
+       << "]";
     const auto lines = ss.str();
 
     std::string status;
