@@ -181,7 +181,7 @@ editor::StatusMessage setLanguageCallback(std::string_view input)
             return editor::StatusMessage {};
         }
     }
-    assert(false && "Unknown language");
+    die("Unknown language");
 }
 
 Command setLanguage()

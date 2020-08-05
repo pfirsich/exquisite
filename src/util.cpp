@@ -9,7 +9,7 @@ void die(std::string_view msg)
 {
     write(STDOUT_FILENO, "\x1b[?1049l", 8);
     perror(msg.data());
-    exit(1);
+    std::abort();
 }
 
 std::string hexString(const void* data, size_t size)

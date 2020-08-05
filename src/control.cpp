@@ -43,7 +43,7 @@ namespace sgr {
             return color(*idx);
         else if (const auto rgb = std::get_if<RgbColor>(&col))
             return color(*rgb);
-        assert(false && "Invalid variant state");
+        die("Invalid variant state");
     }
 
     std::string fgColor(ColorIndex idx)
@@ -68,7 +68,7 @@ namespace sgr {
             return fgColor(*idx);
         else if (const auto rgb = std::get_if<RgbColor>(&color))
             return fgColor(*rgb);
-        assert(false && "Invalid variant state");
+        die("Invalid variant state");
     }
 
     std::string bgColor(ColorIndex idx)
@@ -93,7 +93,7 @@ namespace sgr {
             return bgColor(*idx);
         else if (const auto rgb = std::get_if<RgbColor>(&color))
             return bgColor(*rgb);
-        assert(false && "Invalid variant state");
+        die("Invalid variant state");
     }
 }
 }
