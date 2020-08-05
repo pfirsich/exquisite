@@ -2,6 +2,7 @@
 
 #include "tree-sitter.hpp"
 
+#include "colorscheme.hpp"
 #include "textbuffer.hpp"
 
 class Highlighter {
@@ -10,7 +11,7 @@ public:
 
     Highlighter(const TSLanguage* language, std::string_view querySource);
 
-    // void setColorScheme(const ColorScheme& colors);
+    void setColorScheme(const ColorScheme& colors);
 
     const TSLanguage* getLanguage() const;
 
@@ -20,7 +21,7 @@ public:
 
     std::optional<size_t> getHighlightId(std::string_view name) const;
 
-    std::string_view getColor(size_t highlightId) const;
+    const std::string& getColor(size_t highlightId) const;
 
 private:
     struct Highlight {
@@ -52,7 +53,7 @@ public:
 
     std::vector<Highlight> getHighlights(size_t start, size_t end) const;
 
-    std::string_view getColor(size_t highlightId) const;
+    const std::string& getColor(size_t highlightId) const;
 
     const ts::Tree* getTree() const;
 

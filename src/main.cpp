@@ -192,6 +192,11 @@ int main(int argc, char** argv)
         close(tty);
     }
 
+    for (const auto lang : languages::getAll()) {
+        if (lang->highlighter)
+            lang->highlighter->setColorScheme(colorScheme);
+    }
+
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 
     terminal::init();

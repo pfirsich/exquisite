@@ -159,6 +159,8 @@ void Buffer::setLanguage(const Language* lang)
     language_ = lang ? lang : &languages::plainText;
     if (language_->highlighter)
         highlighting_ = std::make_unique<Highlighting>(*language_->highlighter);
+    else
+        highlighting_ = nullptr;
 }
 
 const Language* Buffer::getLanguage() const

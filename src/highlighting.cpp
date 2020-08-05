@@ -33,15 +33,15 @@ Highlighter::Highlighter(const TSLanguage* language, std::string_view querySourc
     }
 }
 
-/*void Highlighter::setColorScheme(const ColorScheme& colors)
+void Highlighter::setColorScheme(const ColorScheme& colors)
 {
     highlights_.clear();
     for (size_t i = 0; i < query.getCaptureCount(); ++i) {
         const auto name = std::string(query.getCaptureNameForId(i));
-        const auto color = colors.at(std::string(query.getCaptureNameForId(i)));
-        highlights_.emplace_back(Highlight { std::move(name), getColorCode(color) });
+        const auto& color = colors.getColor(name);
+        highlights_.emplace_back(Highlight { std::move(name), color });
     }
-}*/
+}
 
 const TSLanguage* Highlighter::getLanguage() const
 {
@@ -67,7 +67,7 @@ std::optional<size_t> Highlighter::getHighlightId(std::string_view name) const
     return std::nullopt;
 }
 
-std::string_view Highlighter::getColor(size_t highlightId) const
+const std::string& Highlighter::getColor(size_t highlightId) const
 {
     return highlights_.at(highlightId).color;
 }
@@ -128,7 +128,7 @@ std::vector<Highlight> Highlighting::getHighlights(size_t start, size_t end) con
     return highlights;
 }
 
-std::string_view Highlighting::getColor(size_t highlightId) const
+const std::string& Highlighting::getColor(size_t highlightId) const
 {
     return highlighter_.getColor(highlightId);
 }

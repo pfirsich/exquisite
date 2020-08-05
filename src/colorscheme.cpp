@@ -7,10 +7,38 @@
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 ColorScheme colorScheme = {
+    // editor
     { "error.prompt", 1 },
     { "highlight.currentline", 238 },
     { "highlight.match.prompt", 243 },
     { "highlight.match.find", 240 },
+
+    // code
+    { "identifier", 39 },
+    { "identifier.namespace", 255 },
+    { "identifier.type", 222 },
+    { "identifier.type.primitive", 208 },
+    { "identifier.type.auto", 228 },
+    { "identifier.field", 51 },
+    { "keyword", 204 },
+    { "function", 69 },
+    { "literal.string", 85 },
+    { "literal.string.raw", 85 },
+    { "literal.string.systemlib", 36 },
+    { "literal.char", 83 },
+    { "literal.number", 215 },
+    { "literal.boolean.true", 216 },
+    { "literal.boolean.false", 216 },
+    { "comment", 240 },
+    { "include", 204 },
+    { "bracket.round.open", 1 },
+    { "bracket.round.close", 1 },
+    { "bracket.square.open", 2 },
+    { "bracket.square.close", 2 },
+    { "bracket.curly.open", 3 },
+    { "bracket.curly.close", 3 },
+    { "bracket.angle.open", 4 },
+    { "bracket.angle.close", 4 },
 };
 
 ColorScheme::ColorScheme(std::initializer_list<std::pair<std::string, Color>> colors)

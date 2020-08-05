@@ -90,10 +90,21 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
     const auto selection = buf.getSelection();
 
+    buf.updateHighlighting();
+    const auto highlighting = buf.getHighlighting();
+    const auto startOffset = text.getLine(firstLine).offset;
+    const auto endOffset = text.getLine(std::min(text.getLineCount() - 1, lastLine)).offset;
+    const auto highlights = highlighting ? highlighting->getHighlights(startOffset, endOffset)
+                                         : std::vector<Highlight> {};
+    size_t highlightIdx = 0;
+
     for (size_t l = firstLine; l < lastLine; ++l) {
         const auto line = text.getLine(l);
 
         const bool cursorInLine = l == cursor.y;
+
+        // reset fg color for each line
+        terminal::bufferWrite(control::sgr::resetFgColor);
 
         if (config.highlightCurrentLine && cursorInLine) {
             terminal::bufferWrite(control::sgr::bgColorPrefix);
@@ -117,6 +128,21 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         const auto lineEndIndex = line.offset + std::min(line.length, textWidth);
         for (size_t i = line.offset; i < lineEndIndex; ++i) {
             const auto ch = text[i];
+
+            if (!highlights.empty()) {
+                if (i == highlights[highlightIdx].end)
+                    terminal::bufferWrite(control::sgr::resetFgColor);
+
+                // Skip multiple highlights for the same index (and use the last one)
+                while (highlightIdx < highlights.size() - 1 && i >= highlights[highlightIdx].start
+                    && i == highlights[highlightIdx + 1].start)
+                    highlightIdx++;
+
+                if (i == highlights[highlightIdx].start) {
+                    terminal::bufferWrite(control::sgr::fgColorPrefix);
+                    terminal::bufferWrite(highlighting->getColor(highlights[highlightIdx].id));
+                }
+            }
 
             const bool charInFrontOfCursor = i < line.offset + buf.getCursorX(cursor);
             const bool moveCursor = cursorInLine && charInFrontOfCursor;
@@ -191,6 +217,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+    terminal::bufferWrite(control::sgr::resetFgColor);
 
     for (size_t y = lastLine + 1; y < size.y + 1; ++y) {
         if (pos.x > 0)
