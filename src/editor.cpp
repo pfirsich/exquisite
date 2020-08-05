@@ -27,7 +27,7 @@ namespace {
             return lut[ch];
         if (ch == 127)
             return "DEL"sv;
-        assert(false && "Unhandled control character");
+        die("Unhandled control character");
     }
 
     template <typename Value = size_t>

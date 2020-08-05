@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstring>
 
+#include "util.hpp"
+
 std::string toString(SpecialKey key)
 {
     switch (key) {
@@ -124,5 +126,5 @@ bool Key::operator==(const Key& other) const
         }
         return false;
     }
-    assert(false && "Invalid variant state");
+    die("Invalid variant state");
 }
