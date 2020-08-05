@@ -26,6 +26,7 @@ set(SRC
   src/palette.cpp
   src/process.cpp
   src/terminal.cpp
+  src/textbuffer.cpp
   src/utf8.cpp
   src/util.cpp
 )
