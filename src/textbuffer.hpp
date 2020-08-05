@@ -19,6 +19,8 @@ public:
     char operator[](size_t offset) const;
     std::string getString(const Range& range) const;
     std::string getString() const;
+    // This gives you as much string as you can have from a given offset
+    std::string_view getString(size_t offset) const;
 
     size_t getLineCount() const;
     Range getLine(LineIndex idx) const;

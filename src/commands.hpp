@@ -22,4 +22,5 @@ Command paste();
 Command find();
 Command findPrev();
 Command findNext();
+Command setLanguage();
 }

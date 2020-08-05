@@ -93,8 +93,10 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
         const bool cursorInLine = l == cursor.y;
 
-        if (config.highlightCurrentLine && cursorInLine)
-            terminal::bufferWrite(control::sgr::bgColor(colorScheme.highlightLine));
+        if (config.highlightCurrentLine && cursorInLine) {
+            terminal::bufferWrite(control::sgr::bgColorPrefix);
+            terminal::bufferWrite(colorScheme["highlight.currentline"]);
+        }
 
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
@@ -203,13 +205,16 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 void drawStatusBar(const Vec& terminalSize)
 {
     std::stringstream ss;
+    const auto lang = buffer.getLanguage();
+    if (lang)
+        ss << lang->name << "    ";
     ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << ' ';
     const auto lines = ss.str();
 
     std::string status;
     status.reserve(terminalSize.x);
     status.append(" "s + (buffer.isModified() ? "*"s : ""s) + buffer.name);
-    status.append(terminalSize.x - lines.size() - status.size(), ' ');
+    status.append(subClamp(subClamp(terminalSize.x, lines.size()), status.size()), ' ');
     status.append(lines);
 
     terminal::bufferWrite(control::sgr::invert);
@@ -236,8 +241,8 @@ Vec drawPrompt(const Vec& terminalSize)
         enum Background { Normal = 0, Selected, Highlight };
         LazyTerminalState<Background> background({
             std::string(control::sgr::resetBgColor),
-            control::sgr::bgColor(colorScheme.highlightLine),
-            control::sgr::bgColor(colorScheme.matchHighlightColor),
+            std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
+            std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.match.prompt"],
         });
 
         auto skipToNextMatching = [](const std::vector<Prompt::Option>& opts, size_t& index) {
@@ -335,7 +340,8 @@ void redraw()
             terminal::bufferWrite(control::sgr::reset);
             break;
         case StatusMessage::Type::Error:
-            terminal::bufferWrite(control::sgr::fgColor(colorScheme.statusErrorColor));
+            terminal::bufferWrite(control::sgr::fgColorPrefix);
+            terminal::bufferWrite(colorScheme["error.prompt"]);
             break;
         }
         terminal::bufferWrite(statusMessage.message);

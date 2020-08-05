@@ -112,6 +112,11 @@ bool Buffer::readFromFile(const fs::path& p)
     setText(*data);
     setPath(p);
     savedVersionId_ = actions_.getCurrentVersionId();
+    const auto extStr = std::string(p.extension());
+    auto ext = std::string_view(extStr);
+    if (ext[0] == '.')
+        ext = ext.substr(1);
+    setLanguage(languages::getFromExt(ext));
     return true;
 }
 
@@ -147,6 +152,29 @@ bool Buffer::save()
 bool Buffer::isModified() const
 {
     return actions_.getCurrentVersionId() != savedVersionId_;
+}
+
+void Buffer::setLanguage(const Language* lang)
+{
+    language_ = lang ? lang : &languages::plainText;
+    if (language_->highlighter)
+        highlighting_ = std::make_unique<Highlighting>(*language_->highlighter);
+}
+
+const Language* Buffer::getLanguage() const
+{
+    return language_;
+}
+
+void Buffer::updateHighlighting()
+{
+    if (highlighting_)
+        highlighting_->update(text_);
+}
+
+const Highlighting* Buffer::getHighlighting() const
+{
+    return highlighting_.get();
 }
 
 void Buffer::TextAction::perform() const

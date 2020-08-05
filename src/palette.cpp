@@ -13,6 +13,7 @@ std::vector<PaletteEntry>& getPalette()
         { "Goto File", commands::gotoFile() },
         { "Copy", commands::copy() },
         { "Paste", commands::paste() },
+        { "Set Language", commands::setLanguage() },
     };
     return palette;
 }

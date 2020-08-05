@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -35,6 +36,12 @@ struct Range {
         return offset + length;
     }
 };
+
+struct RgbColor {
+    uint8_t r, g, b;
+};
+using ColorIndex = uint8_t;
+using Color = std::variant<ColorIndex, RgbColor>;
 
 template <typename T>
 T subClamp(T a, T b)

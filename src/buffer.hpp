@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "actionstack.hpp"
+#include "languages.hpp"
 #include "textbuffer.hpp"
 #include "util.hpp"
 
@@ -49,6 +50,11 @@ public:
     void readFromStdin();
     bool save();
     bool isModified() const;
+    void setLanguage(const Language* language);
+    const Language* getLanguage() const;
+
+    void updateHighlighting();
+    const Highlighting* getHighlighting() const;
 
     const TextBuffer& getText() const;
     void insert(std::string_view str);
@@ -98,4 +104,6 @@ private:
     size_t savedVersionId_ = std::numeric_limits<size_t>::max();
     Cursor cursor_;
     size_t scroll_ = 0; // in lines
+    const Language* language_ = &languages::plainText;
+    std::unique_ptr<Highlighting> highlighting_;
 };

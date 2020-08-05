@@ -172,4 +172,26 @@ Command paste()
         }
     };
 }
+
+editor::StatusMessage setLanguageCallback(std::string_view input)
+{
+    for (const auto lang : languages::getAll()) {
+        if (lang->name == input) {
+            editor::buffer.setLanguage(lang);
+            return editor::StatusMessage {};
+        }
+    }
+    assert(false && "Unknown language");
+}
+
+Command setLanguage()
+{
+    return []() {
+        std::vector<std::string> options;
+        for (const auto lang : languages::getAll())
+            options.push_back(lang->name);
+        std::sort(options.begin(), options.end());
+        editor::setPrompt(editor::Prompt { "Set Language> ", setLanguageCallback, options });
+    };
+}
 }

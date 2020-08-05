@@ -33,6 +33,11 @@ std::string TextBuffer::getString() const
     return std::string(data_.data(), data_.size());
 }
 
+std::string_view TextBuffer::getString(size_t offset) const
+{
+    return std::string_view(data_.data() + offset, data_.size() - offset);
+}
+
 void TextBuffer::set(std::string_view str)
 {
     data_ = std::vector<char>(str.data(), str.data() + str.size());
