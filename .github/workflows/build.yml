@@ -3,7 +3,7 @@ on: [push]
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-16.04
     steps:
     - uses: actions/checkout@v2
       with:
@@ -13,11 +13,11 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get install --assume-yes build-essential ninja-build cmake clang-10
-    - name: Configure # I use Debug here for now, because only I use it. Later -> RelWithDebInfo
+    - name: Configure
       run: |
         mkdir build
         cd build
-        cmake -G Ninja -DCMAKE_BUILD_TYPE:STRING=Debug -DCMAKE_CXX_COMPILER=clang++-10 ..
+        cmake -G Ninja -DCMAKE_BUILD_TYPE:STRING=RelWithDebInfo -DCMAKE_CXX_COMPILER=clang++-10 ..
     - name: Build
       run: cd build && ninja
     - name: Artifact
