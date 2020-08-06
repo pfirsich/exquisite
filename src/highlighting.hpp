@@ -51,6 +51,7 @@ public:
 
     void update(const TextBuffer& text);
 
+    // This will return a vector of highlights with highlight[i].start <= highlights[i+1].start
     std::vector<Highlight> getHighlights(size_t start, size_t end) const;
 
     const std::string& getColor(size_t highlightId) const;
