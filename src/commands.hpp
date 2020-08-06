@@ -20,7 +20,7 @@ Command showCommandPalette();
 Command copy();
 Command paste();
 Command find();
-Command findPrev();
-Command findNext();
+Command findPrevSelection();
+Command findNextSelection();
 Command setLanguage();
 }

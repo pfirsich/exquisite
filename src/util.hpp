@@ -11,6 +11,9 @@
 
 namespace fs = std::filesystem;
 
+// I don't want to type this every time I use it (quite a bit)
+inline constexpr size_t MaxSizeT = std::numeric_limits<size_t>::max();
+
 struct Vec {
     // for terminal cells 0, 0 is top left
     size_t x = 0;
@@ -60,3 +63,6 @@ std::unique_ptr<FILE, decltype(&fclose)> uniqueFopen(const char* path, const cha
 std::optional<std::string> readFile(const fs::path& path);
 
 std::string readAll(int fd);
+
+bool countNewlines(std::string_view str);
+bool hasNewlines(std::string_view str);

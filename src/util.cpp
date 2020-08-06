@@ -1,5 +1,6 @@
 #include "util.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 
@@ -61,4 +62,14 @@ std::string readAll(int fd)
             break;
     }
     return str;
+}
+
+bool countNewlines(std::string_view str)
+{
+    return std::count(str.begin(), str.end(), '\n');
+}
+
+bool hasNewlines(std::string_view str)
+{
+    return str.find('\n') != std::string_view::npos;
 }

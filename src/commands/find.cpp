@@ -19,7 +19,7 @@ bool match(const TextBuffer& text, size_t offset, std::string_view input)
 
 struct FindResult {
     Range find;
-    size_t matchNumber = 1;
+    size_t matchIndex = 0;
     size_t occurences = 0;
 };
 
@@ -31,42 +31,43 @@ FindResult editorFind(std::string_view input, FindMode mode = FindMode::Normal)
         return FindResult {};
 
     const auto& text = editor::buffer.getText();
-    const auto cursorPos = editor::buffer.getCursorOffset(editor::buffer.getCursor().start)
-        + (mode == FindMode::Next ? 1 : 0); // hack?
-    FindResult res;
-    Range first, last, prev, current; // current is starting from cursor
-    for (size_t i = 0; i < text.getSize(); ++i) {
+    const auto cursorPos = editor::buffer.getCursorOffset(editor::buffer.getCursor().start);
+    // This function was so complicated before, so I just do it this dumb, probably slow way
+    std::vector<size_t> matches;
+    matches.reserve(64);
+    size_t cursorMatch = MaxSizeT; // the index of the first match right after the cursor
+    for (size_t i = 0; i < text.getSize() - input.size(); ++i) {
         if (match(text, i, input)) {
-            res.occurences++;
-            const auto find = Range { i, input.size() };
-
-            if (first.length == 0)
-                first = find;
-
-            if (i >= cursorPos) {
-                if (current.length == 0)
-                    current = find;
-            } else {
-                prev = find;
-                res.matchNumber++;
-            }
-
-            last = find;
-
+            matches.push_back(i);
+            if (i >= cursorPos && cursorMatch == MaxSizeT)
+                cursorMatch = matches.size() - 1;
             i += input.size();
         }
     }
 
-    if (res.occurences == 0)
-        return res;
+    if (matches.empty())
+        return FindResult {};
 
-    if (mode == FindMode::Normal || mode == FindMode::Next)
-        res.find = current.length > 0 ? current : first;
-    else if (mode == FindMode::Prev)
-        res.find = prev.length > 0 ? prev : last;
+    FindResult res;
+    res.occurences = matches.size();
+
+    if (cursorMatch == MaxSizeT) // the next after the cursor is at the start of the file
+        cursorMatch = 0;
+
+    if (mode == FindMode::Normal) {
+        res.matchIndex = cursorMatch;
+    } else if (mode == FindMode::Prev) {
+        res.matchIndex = (cursorMatch - 1) % matches.size();
+    } else if (mode == FindMode::Next) {
+        if (cursorPos == matches[cursorMatch])
+            res.matchIndex = (cursorMatch + 1) % matches.size();
+        else // Just like Normal
+            res.matchIndex = cursorMatch;
+    }
+
+    res.find = Range { matches[res.matchIndex], input.size() };
 
     if (res.find.length > 0) {
-        debug("select: ", res.find.offset, ", ", res.find.length);
         editor::buffer.select(res.find);
     }
 
@@ -82,7 +83,9 @@ std::string& getLastFind()
 std::string resultString(const FindResult& res, std::string_view input)
 {
     std::stringstream ss;
-    ss << res.matchNumber << "/" << res.occurences << " matches for '" << input << "'";
+    ss << res.matchIndex + 1 << "/" << res.occurences << " matches";
+    if (!hasNewlines(input))
+        ss << " for '" << input << "'";
     return ss.str();
 }
 
@@ -127,30 +130,30 @@ Command find()
     };
 }
 
-Command findPrev()
+Command findPrevSelection()
 {
     return []() {
-        const auto& lastFind = getLastFind();
-        if (lastFind.empty()) {
+        const auto str = editor::buffer.getSelectionString();
+        if (str.empty()) {
             editor::setStatusMessage("No last search");
             return;
         }
 
-        const auto f = getFindStatus(lastFind, FindMode::Prev);
+        const auto f = getFindStatus(str, FindMode::Prev);
         editor::setStatusMessage(f.second.message, f.second.type);
     };
 }
 
-Command findNext()
+Command findNextSelection()
 {
     return []() {
-        const auto& lastFind = getLastFind();
-        if (lastFind.empty()) {
-            editor::setStatusMessage("No last search");
+        const auto str = editor::buffer.getSelectionString();
+        if (str.empty()) {
+            editor::setStatusMessage("No selection");
             return;
         }
 
-        const auto f = getFindStatus(lastFind, FindMode::Next);
+        const auto f = getFindStatus(str, FindMode::Next);
         editor::setStatusMessage(f.second.message, f.second.type);
     };
 }
