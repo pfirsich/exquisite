@@ -40,6 +40,7 @@ add_subdirectory(deps/fmt)
 add_subdirectory(deps/treesitter)
 
 add_executable(exquisite ${SRC})
+target_compile_options(exquisite PUBLIC "-fcolor-diagnostics")
 target_include_directories(exquisite PUBLIC src)
 target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)

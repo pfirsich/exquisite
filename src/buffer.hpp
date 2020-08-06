@@ -50,8 +50,11 @@ public:
     void readFromStdin();
     bool save();
     bool isModified() const;
+    std::string getTitle() const;
     void setLanguage(const Language* language);
     const Language* getLanguage() const;
+    void setReadOnly(bool readOnly = true);
+    bool getReadOnly() const;
 
     void updateHighlighting();
     const Highlighting* getHighlighting() const;
@@ -107,4 +110,5 @@ private:
     size_t scroll_ = 0; // in lines
     const Language* language_ = &languages::plainText;
     std::unique_ptr<Highlighting> highlighting_;
+    bool readOnly_ = false;
 };

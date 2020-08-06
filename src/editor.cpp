@@ -60,22 +60,24 @@ namespace {
 
     StatusMessage statusMessage;
     std::unique_ptr<Prompt> currentPrompt;
+    // Maybe this should actually be a std::list?
+    // I need to use a vector of unique_ptr here, because Actions use pointers to Buffers
+    // (they need to be stable).
+    std::vector<std::unique_ptr<Buffer>> buffers;
 }
 
-Buffer buffer;
-
 // THIS THING IS WILD
-Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& config)
+Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = false)
 {
     terminal::bufferWrite(control::sgr::reset);
 
     // It kinda sucks to scroll in a draw function, but only here do we know the actual view size
     // This is the only reason the buffer reference is not const!
-    buf.scroll(size.y);
+    buffer.scroll(size.y);
 
-    const auto& text = buf.getText();
-    const auto lineCount = buf.getText().getLineCount();
-    const auto firstLine = buf.getScroll();
+    const auto& text = buffer.getText();
+    const auto lineCount = buffer.getText().getLineCount();
+    const auto firstLine = buffer.getScroll();
     const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
     assert(firstLine <= lineCount - 1);
 
@@ -84,17 +86,18 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
     LazyTerminalState<bool> invert(
         { std::string(control::sgr::resetInvert), std::string(control::sgr::invert) });
 
+    const auto showLineNumbers = config.showLineNumbers && !prompt;
     // Always make space for at least 3 digits
     const auto lineNumDigits = std::max(3, static_cast<int>(std::log10(lineCount) + 1));
     // 1 space margin left and right
-    const size_t lineNumWidth = config.showLineNumbers ? lineNumDigits + 2 : 0;
+    const size_t lineNumWidth = showLineNumbers ? lineNumDigits + 2 : 0;
     const auto textWidth = subClamp(size.x, lineNumWidth);
 
     terminal::bufferWrite(control::moveCursor(pos));
-    const auto cursor = buf.getCursor().start;
-    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + cursor.y - buf.getScroll() };
+    const auto cursor = buffer.getCursor().start;
+    auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + cursor.y - buffer.getScroll() };
 
-    const auto selection = buf.getSelection();
+    const auto selection = buffer.getSelection();
     const auto selectionStr = buffer.getSelectionString();
     auto matchSelection = [&text, &selectionStr](size_t index) {
         for (size_t i = 0; i < selectionStr.size(); ++i) {
@@ -105,6 +108,8 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
     };
     size_t highlightSelectionUntil = 0;
 
+    const auto highlightCurrentLine = config.highlightCurrentLine && !prompt;
+
     enum class Background { Normal = 0, CurrentLine, Highlight };
     LazyTerminalState<Background> background({
         std::string(control::sgr::resetBgColor),
@@ -112,8 +117,8 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.selection"],
     });
 
-    buf.updateHighlighting();
-    const auto highlighting = buf.getHighlighting();
+    buffer.updateHighlighting();
+    const auto highlighting = buffer.getHighlighting();
     const auto startOffset = text.getLine(firstLine).offset;
     const auto endOffset = text.getLine(std::min(text.getLineCount() - 1, lastLine)).offset;
     const auto highlights = highlighting ? highlighting->getHighlights(startOffset, endOffset)
@@ -136,7 +141,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
 
-        if (config.showLineNumbers) {
+        if (showLineNumbers) {
             invert.set(true);
             terminal::bufferWrite(' '); // left margin
             const auto lineStr = std::to_string(l + 1);
@@ -147,11 +152,11 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         }
         invert.set(false);
 
-        const auto lineBg = config.highlightCurrentLine && cursorInLine ? Background::CurrentLine
-                                                                        : Background::Normal;
+        const auto lineBg
+            = highlightCurrentLine && cursorInLine ? Background::CurrentLine : Background::Normal;
         background.set(lineBg);
 
-        const auto cursorX = buf.getCursorX(cursor);
+        const auto cursorX = buffer.getCursorX(cursor);
 
         size_t i = line.offset;
         for (; i < line.offset + line.length; ++i) {
@@ -175,7 +180,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
             const bool selected = selection.contains(i);
             invert.set(selected);
 
-            if (!selected && i >= highlightSelectionUntil && matchSelection(i))
+            if (!prompt && !selected && i >= highlightSelectionUntil && matchSelection(i))
                 highlightSelectionUntil = i + selectionStr.size();
 
             background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
@@ -245,7 +250,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         invert.set(false);
         background.set(lineBg);
 
-        if (config.highlightCurrentLine && cursorInLine) {
+        if (highlightCurrentLine && cursorInLine) {
             const auto numSpaces
                 = subClamp(subClamp(textWidth, lineCursor), drawNewline ? 1ul : 0ul);
             for (size_t i = 0; i < numSpaces; ++i)
@@ -264,6 +269,11 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         if (pos.x > 0)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
         terminal::bufferWrite("~");
+        if (text.getSize() == 0 && y == size.y / 2) {
+            const auto str = "Scratch Buffer"sv;
+            terminal::bufferWrite(std::string(size.x / 2 - str.size() / 2, ' '));
+            terminal::bufferWrite(str);
+        }
         terminal::bufferWrite(control::clearLine);
         if (y < size.y)
             terminal::bufferWrite("\r\n");
@@ -272,7 +282,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
     return drawCursor;
 }
 
-void drawStatusBar(const Vec& terminalSize)
+void drawStatusBar(const Buffer& buffer, const Vec& terminalSize)
 {
     static const auto pid = getpid();
     fmt::memory_buffer line;
@@ -284,7 +294,7 @@ void drawStatusBar(const Vec& terminalSize)
 
     std::string status;
     status.reserve(terminalSize.x);
-    status.append(" "s + (buffer.isModified() ? "*"s : ""s) + buffer.name);
+    status.append(" "s + buffer.getTitle());
     status.append(subClamp(subClamp(terminalSize.x, line.size()), status.size()), ' ');
     status.append(std::string_view(line.data(), line.size()));
 
@@ -369,12 +379,9 @@ Vec drawPrompt(const Vec& terminalSize)
     const auto& prompt = currentPrompt->prompt;
     terminal::bufferWrite(prompt);
     assert(currentPrompt->input.getText().getLineCount() == 1);
-    Config promptConfig = config;
-    promptConfig.showLineNumbers = false;
-    promptConfig.highlightCurrentLine = false;
     const auto pos = Vec { prompt.size(), terminalSize.y - 1 };
     const auto size = Vec { terminalSize.x - prompt.size(), 1 };
-    const auto drawCursor = drawBuffer(currentPrompt->input, pos, size, promptConfig);
+    const auto drawCursor = drawBuffer(currentPrompt->input, pos, size, true);
     terminal::bufferWrite(control::clearLine);
     return drawCursor;
 }
@@ -398,10 +405,10 @@ void redraw()
         return 0ul;
     }();
     const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
-    auto drawCursor = drawBuffer(buffer, Vec { 0, 0 }, bufferSize, config);
+    auto drawCursor = drawBuffer(getBuffer(), Vec { 0, 0 }, bufferSize);
     terminal::bufferWrite("\r\n");
 
-    drawStatusBar(size);
+    drawStatusBar(getBuffer(), size);
 
     if (currentPrompt) {
         drawCursor = drawPrompt(size);
@@ -422,6 +429,66 @@ void redraw()
     terminal::bufferWrite(control::moveCursor(drawCursor));
     terminal::bufferWrite(control::showCursor);
     terminal::flushWrite();
+}
+
+namespace {
+    bool bufferExists(const std::string& name)
+    {
+        for (size_t i = 0; i < editor::getBufferCount(); ++i) {
+            if (name == editor::getBuffer(i).name)
+                return true;
+        }
+        return false;
+    }
+}
+
+Buffer& openBuffer()
+{
+    // If current buffer is empty scratch buffer, don't open a new one, but effectively replace it
+    if (!buffers.empty() && buffers[0]->path.empty() && buffers[0]->getText().getSize() == 0)
+        return *buffers[0];
+
+    const auto& ptr = *buffers.emplace(buffers.begin(), std::make_unique<Buffer>());
+    size_t c = 0;
+    while (bufferExists(fmt::format("SCRATCH {}", c)))
+        c++;
+    ptr->name = fmt::format("SCRATCH {}", c);
+    return *ptr;
+}
+
+void selectBuffer(size_t index)
+{
+    assert(index < buffers.size());
+    std::swap(buffers[0], buffers[index]);
+}
+
+bool selectBuffer(const fs::path& path)
+{
+    for (size_t i = 0; i < buffers.size(); ++i) {
+        if (buffers[i]->path == path) {
+            selectBuffer(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+size_t getBufferCount()
+{
+    return buffers.size();
+}
+
+Buffer& getBuffer(size_t index)
+{
+    assert(index < buffers.size());
+    return *buffers[index];
+}
+
+void closeBuffer(size_t index)
+{
+    buffers.erase(buffers.begin() + index);
+    if (buffers.empty())
+        openBuffer();
 }
 
 Prompt::Prompt(std::string_view prompt, std::function<ConfirmCallback> confirmCallback,

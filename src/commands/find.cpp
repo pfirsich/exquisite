@@ -30,8 +30,9 @@ FindResult editorFind(std::string_view input, FindMode mode = FindMode::Normal)
     if (input.empty())
         return FindResult {};
 
-    const auto& text = editor::buffer.getText();
-    const auto cursorPos = editor::buffer.getCursorOffset(editor::buffer.getCursor().start);
+    const auto& text = editor::getBuffer().getText();
+    const auto cursorPos
+        = editor::getBuffer().getCursorOffset(editor::getBuffer().getCursor().start);
     // This function was so complicated before, so I just do it this dumb, probably slow way
     std::vector<size_t> matches;
     matches.reserve(64);
@@ -68,7 +69,7 @@ FindResult editorFind(std::string_view input, FindMode mode = FindMode::Normal)
     res.find = Range { matches[res.matchIndex], input.size() };
 
     if (res.find.length > 0) {
-        editor::buffer.select(res.find);
+        editor::getBuffer().select(res.find);
     }
 
     return res;
@@ -133,7 +134,7 @@ Command find()
 Command findPrevSelection()
 {
     return []() {
-        const auto str = editor::buffer.getSelectionString();
+        const auto str = editor::getBuffer().getSelectionString();
         if (str.empty()) {
             editor::setStatusMessage("No last search");
             return;
@@ -147,7 +148,7 @@ Command findPrevSelection()
 Command findNextSelection()
 {
     return []() {
-        const auto str = editor::buffer.getSelectionString();
+        const auto str = editor::getBuffer().getSelectionString();
         if (str.empty()) {
             editor::setStatusMessage("No selection");
             return;

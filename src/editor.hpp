@@ -56,7 +56,13 @@ private:
     size_t selectedOption_ = 0;
 };
 
-extern Buffer buffer;
+// Buffers are indexed by last use. index = 0 is the current buffer.
+Buffer& openBuffer();
+void selectBuffer(size_t index);
+bool selectBuffer(const fs::path& path);
+size_t getBufferCount();
+Buffer& getBuffer(size_t index = 0);
+void closeBuffer(size_t index = 0);
 
 void redraw();
 

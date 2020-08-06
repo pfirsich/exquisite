@@ -68,6 +68,11 @@ bool Utf8Sequence::operator==(const Utf8Sequence& other) const
     return length == other.length && std::memcmp(&bytes[0], &other.bytes[0], length) == 0;
 }
 
+Utf8Sequence::operator std::string_view() const
+{
+    return std::string_view(&bytes[0], length);
+}
+
 Key::Key(const std::vector<char>& b)
     : bytes(b)
     , modifiers()
@@ -127,4 +132,24 @@ bool Key::operator==(const Key& other) const
         return false;
     }
     die("Invalid variant state");
+}
+
+std::string Key::getAsString() const
+{
+    std::string str;
+    str.reserve(64);
+    if (modifiers.test(Modifiers::Ctrl))
+        str.append("Ctrl-");
+    if (modifiers.test(Modifiers::Alt))
+        str.append("Alt-");
+    if (const auto special = std::get_if<SpecialKey>(&key)) {
+        if (modifiers.test(Modifiers::Shift))
+            str.append("Shift-");
+        str.append(toString(*special));
+    } else if (const auto seq = std::get_if<Utf8Sequence>(&key)) {
+        str.append(static_cast<std::string_view>(*seq));
+    } else {
+        die("Invalid variant state");
+    }
+    return str;
 }

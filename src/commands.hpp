@@ -23,4 +23,10 @@ Command find();
 Command findPrevSelection();
 Command findNextSelection();
 Command setLanguage();
+Command newBuffer();
+Command renameBuffer();
+Command toggleBufferReadOnly();
+Command closeBuffer();
+Command showBufferList();
+Command showShortcutHelp();
 }

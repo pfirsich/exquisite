@@ -9,6 +9,8 @@
 #include "utf8.hpp"
 #include "util.hpp"
 
+using namespace std::literals;
+
 ///////////////////////////////////////////// Cursor
 
 bool Cursor::emptySelection() const
@@ -154,6 +156,26 @@ bool Buffer::isModified() const
     return actions_.getCurrentVersionId() != savedVersionId_;
 }
 
+std::string Buffer::getTitle() const
+{
+    std::string title;
+    const auto pathStr = std::string(path);
+    title.reserve(name.size() + pathStr.size() + 16);
+
+    if (isModified())
+        title.push_back('*');
+
+    if (readOnly_)
+        title.append("[read-only] ");
+
+    if (path.empty())
+        title.append(name);
+    else
+        title.append(fmt::format("{} ({})", name, pathStr));
+
+    return title;
+}
+
 void Buffer::setLanguage(const Language* lang)
 {
     language_ = lang ? lang : &languages::plainText;
@@ -166,6 +188,17 @@ void Buffer::setLanguage(const Language* lang)
 const Language* Buffer::getLanguage() const
 {
     return language_;
+}
+
+void Buffer::setReadOnly(bool readOnly)
+{
+    readOnly_ = readOnly;
+    savedVersionId_ = actions_.getCurrentVersionId();
+}
+
+bool Buffer::getReadOnly() const
+{
+    return readOnly_;
 }
 
 void Buffer::updateHighlighting()

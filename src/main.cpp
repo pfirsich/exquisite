@@ -42,10 +42,12 @@ bool processBufferInput(Buffer& buffer, const Key& key)
             buffer.moveCursorEnd(select);
             return true;
         case SpecialKey::Backspace:
-            buffer.deleteBackwards();
+            if (!buffer.getReadOnly())
+                buffer.deleteBackwards();
             return true;
         case SpecialKey::Delete:
-            buffer.deleteForwards();
+            if (!buffer.getReadOnly())
+                buffer.deleteForwards();
             return true;
         default:
             return false;
@@ -53,7 +55,8 @@ bool processBufferInput(Buffer& buffer, const Key& key)
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
         // debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
         if (!key.modifiers.test(Modifiers::Ctrl)) {
-            buffer.insert(std::string_view(&seq->bytes[0], seq->length));
+            if (!buffer.getReadOnly())
+                buffer.insert(std::string_view(&seq->bytes[0], seq->length));
             return true;
         }
     } else {
@@ -62,14 +65,13 @@ bool processBufferInput(Buffer& buffer, const Key& key)
     return false;
 }
 
-std::string getCurrentIndent()
+std::string getCurrentIndent(const Buffer& buffer)
 {
     std::string indent;
     indent.reserve(32);
-    assert(editor::buffer.getCursor().emptySelection());
-    const auto line = editor::buffer.getText().getLine(editor::buffer.getCursor().start.y);
+    const auto line = buffer.getText().getLine(buffer.getCursor().min().y);
     for (size_t i = line.offset; i < line.offset + line.length; ++i) {
-        const auto ch = editor::buffer.getText()[i];
+        const auto ch = buffer.getText()[i];
         if (ch == ' ' || ch == '\t')
             indent.push_back(ch);
         else
@@ -94,22 +96,23 @@ void debugKey(const Key& key)
     }
 }
 
-void processInput(const Key& key)
+void processInput(Buffer& buffer, const Key& key)
 {
-    if (processBufferInput(editor::buffer, key))
+    if (processBufferInput(buffer, key))
         return;
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         const bool select = key.modifiers.test(Modifiers::Shift);
         switch (*special) {
         case SpecialKey::Up:
-            editor::buffer.moveCursorY(-1, select);
+            buffer.moveCursorY(-1, select);
             break;
         case SpecialKey::Down:
-            editor::buffer.moveCursorY(1, select);
+            buffer.moveCursorY(1, select);
             break;
         case SpecialKey::Return:
-            editor::buffer.insert("\n" + getCurrentIndent());
+            if (!buffer.getReadOnly())
+                buffer.insert("\n" + getCurrentIndent(buffer));
             break;
         default:
             break;
@@ -176,19 +179,21 @@ int main(int argc, char** argv)
         fs::path path = args[0];
         if (!fs::exists(path)) {
             editor::setStatusMessage("New file");
-            editor::buffer.setPath(path);
+            editor::openBuffer().setPath(path);
         } else {
-            if (!editor::buffer.readFromFile(path)) {
+            if (!editor::openBuffer().readFromFile(path)) {
                 fprintf(stderr, "Could not open file '%s'\n", args[0].c_str());
                 exit(1);
             }
         }
     } else if (!isatty(STDIN_FILENO)) {
-        editor::buffer.readFromStdin();
+        editor::openBuffer().readFromStdin();
         // const int fd = dup(STDIN_FILENO);
         const int tty = open("/dev/tty", O_RDONLY);
         dup2(tty, STDIN_FILENO);
         close(tty);
+    } else {
+        editor::openBuffer();
     }
 
     for (const auto lang : languages::getAll()) {
@@ -209,7 +214,7 @@ int main(int argc, char** argv)
             if (editor::getPrompt())
                 processPromptInput(*key);
             else
-                processInput(*key);
+                processInput(editor::getBuffer(), *key);
         }
 
         editor::redraw();

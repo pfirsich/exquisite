@@ -36,6 +36,7 @@ struct Utf8Sequence {
 
     bool operator==(char c) const;
     bool operator==(const Utf8Sequence& other) const;
+    explicit operator std::string_view() const;
 };
 
 enum class Modifiers { Ctrl, Alt, Shift };
@@ -54,6 +55,7 @@ struct Key {
     Key(Bitmask<Modifiers>, char key); // This is just to put into a shortcut
 
     bool operator==(const Key& other) const;
+    std::string getAsString() const;
 };
 
 template <>
