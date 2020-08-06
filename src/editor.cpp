@@ -103,7 +103,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
         const bool cursorInLine = l == cursor.y;
 
-        // reset fg color for each line
+        // reset fg color before each line
         terminal::bufferWrite(control::sgr::resetFgColor);
 
         if (config.highlightCurrentLine && cursorInLine) {
@@ -194,6 +194,9 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
                     drawCursor.x++;
             }
         }
+
+        // reset fg color for after line
+        terminal::bufferWrite(control::sgr::resetFgColor);
 
         // The index will be < size but not \n only if we didn't draw the whole line
         const bool drawNewline = config.renderWhitespace && config.newlineChar
