@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <CLI/CLI.hpp>
+
 #include "commands.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
@@ -172,18 +174,66 @@ void printUsage()
     printf("Usage: `exquisite <file>` or `<cmd> | exquisite`\n");
 }
 
+struct CliOptions {
+    bool readOnly = false;
+    bool debug = false;
+    const Language* language = &languages::plainText;
+    std::vector<std::string> files;
+};
+
+struct OptParserLanguage {
+    CliOptions& opts;
+    void operator()(const std::string& opt)
+    {
+        opts.language = languages::getFromExt(opt);
+        if (opts.language == &languages::plainText && !opt.empty())
+            throw CLI::ValidationError { "--lang: Unrecognized extension" };
+    }
+};
+
+CliOptions parseOpts(int argc, char** argv)
+{
+    CLI::App app { "Joel's text editor" };
+    CliOptions opts;
+    app.add_flag("-R,--read-only", opts.readOnly, "Start editor in read-only mode");
+    app.add_flag("-D,--debug", opts.debug, "Write log output to debug.out")->envname("EXQ_DEBUG");
+    app.add_option_function<std::string>("-L,--lang", OptParserLanguage { opts },
+        "Use this as the extension of the file to determine the language mode\n"
+        "Pass empty to force plain text");
+    app.add_option("files", opts.files, "Files to open");
+
+    try {
+        app.parse(argc, argv);
+    } catch (const CLI::ParseError& e) {
+        std::exit(app.exit(e));
+    }
+
+    if (std::string_view(argv[0]) == "rexq")
+        opts.readOnly = true;
+
+    return opts;
+}
+
 int main(int argc, char** argv)
 {
-    std::vector<std::string> args(argv + 1, argv + argc);
-    if (args.size() > 0) {
-        fs::path path = args[0];
-        if (!fs::exists(path)) {
-            editor::setStatusMessage("New file");
-            editor::openBuffer().setPath(path);
-        } else {
-            if (!editor::openBuffer().readFromFile(path)) {
-                fprintf(stderr, "Could not open file '%s'\n", args[0].c_str());
-                exit(1);
+    const auto opts = parseOpts(argc, argv);
+
+    if (opts.readOnly)
+        editor::setReadOnly();
+
+    if (opts.debug)
+        logDebugToFile = true;
+
+    if (!opts.files.empty()) {
+        for (const auto& file : opts.files) {
+            fs::path path = file;
+            if (!fs::exists(path)) {
+                editor::openBuffer().setPath(path);
+            } else {
+                if (!editor::openBuffer().readFromFile(path)) {
+                    fprintf(stderr, "Could not open file '%s'\n", file.c_str());
+                    exit(1);
+                }
             }
         }
     } else if (!isatty(STDIN_FILENO)) {

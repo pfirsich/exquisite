@@ -250,6 +250,10 @@ Command toggleBufferReadOnly()
             editor::setStatusMessage(
                 "Cannot set modified buffer to read-only", editor::StatusMessage::Type::Error);
             return;
+        } else if (editor::getReadOnly()) {
+            editor::setStatusMessage("Cannot remove read-only, when editor is in read-only mode",
+                editor::StatusMessage::Type::Error);
+            return;
         }
         buffer.setReadOnly(!buffer.getReadOnly());
     };

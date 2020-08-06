@@ -64,6 +64,7 @@ namespace {
     // I need to use a vector of unique_ptr here, because Actions use pointers to Buffers
     // (they need to be stable).
     std::vector<std::unique_ptr<Buffer>> buffers;
+    bool readOnly = false;
 }
 
 // THIS THING IS WILD
@@ -431,6 +432,16 @@ void redraw()
     terminal::flushWrite();
 }
 
+void setReadOnly()
+{
+    readOnly = true;
+}
+
+bool getReadOnly()
+{
+    return readOnly;
+}
+
 namespace {
     bool bufferExists(const std::string& name)
     {
@@ -453,6 +464,10 @@ Buffer& openBuffer()
     while (bufferExists(fmt::format("SCRATCH {}", c)))
         c++;
     ptr->name = fmt::format("SCRATCH {}", c);
+
+    if (readOnly)
+        ptr->setReadOnly();
+
     return *ptr;
 }
 

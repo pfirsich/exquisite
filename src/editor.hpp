@@ -56,6 +56,9 @@ private:
     size_t selectedOption_ = 0;
 };
 
+void setReadOnly();
+bool getReadOnly();
+
 // Buffers are indexed by last use. index = 0 is the current buffer.
 Buffer& openBuffer();
 void selectBuffer(size_t index);
