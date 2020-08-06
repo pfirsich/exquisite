@@ -103,6 +103,9 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
         const bool cursorInLine = l == cursor.y;
 
+        // number of characters drawn in this line
+        size_t lineCursor = 0;
+
         // reset fg color before each line
         terminal::bufferWrite(control::sgr::resetFgColor);
 
@@ -125,8 +128,10 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
             invert.set(false);
         }
 
-        const auto lineEndIndex = line.offset + std::min(line.length, textWidth);
-        for (size_t i = line.offset; i < lineEndIndex; ++i) {
+        const auto cursorX = buf.getCursorX(cursor);
+
+        size_t i = line.offset;
+        for (; i < line.offset + line.length; ++i) {
             const auto ch = text[i];
 
             if (!highlights.empty()) {
@@ -144,9 +149,6 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
                 }
             }
 
-            const bool charInFrontOfCursor = i < line.offset + buf.getCursorX(cursor);
-            const bool moveCursor = cursorInLine && charInFrontOfCursor;
-
             const bool selected = selection.contains(i);
             invert.set(selected);
 
@@ -155,8 +157,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
                 faint.set(true);
                 terminal::bufferWrite(*config.spaceChar);
 
-                if (moveCursor)
-                    drawCursor.x++;
+                lineCursor++;
             } else if (ch == '\t') {
                 const bool tabChars = config.tabStartChar || config.tabMidChar || config.tabEndChar;
                 assert(config.tabWidth > 0);
@@ -171,15 +172,13 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
                         terminal::bufferWrite(' ');
                 }
 
-                if (moveCursor)
-                    drawCursor.x += config.tabWidth;
+                lineCursor += config.tabWidth;
             } else if (std::iscntrl(ch)) {
                 faint.set(true);
                 const auto str = getControlString(ch);
                 terminal::bufferWrite(str);
 
-                if (moveCursor)
-                    drawCursor.x += str.size();
+                lineCursor += str.size();
             } else {
                 const auto len = utf8::getCodePointLength(text, text.getSize(), i);
 
@@ -190,9 +189,14 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
                 // Always assume each code point is one character on screen
                 // This is probably wrong for a lot of stuff (emojis and such), but what can I do?
-                if (moveCursor)
-                    drawCursor.x++;
+                lineCursor++;
             }
+
+            if (lineCursor >= textWidth)
+                break;
+        }
+        if (cursorInLine) {
+            drawCursor.x += std::min(lineCursor, cursorX);
         }
 
         // reset fg color for after line
@@ -200,8 +204,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
         // The index will be < size but not \n only if we didn't draw the whole line
         const bool drawNewline = config.renderWhitespace && config.newlineChar
-            && line.length < textWidth && lineEndIndex < text.getSize()
-            && text[lineEndIndex] == '\n';
+            && lineCursor < textWidth && (i < text.getSize() && text[i] == '\n');
         if (drawNewline) {
             faint.set(true);
             terminal::bufferWrite(*config.newlineChar);
@@ -209,7 +212,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
         if (config.highlightCurrentLine && cursorInLine) {
             const auto numSpaces
-                = subClamp(subClamp(textWidth, line.length), drawNewline ? 1ul : 0ul);
+                = subClamp(subClamp(textWidth, lineCursor), drawNewline ? 1ul : 0ul);
             for (size_t i = 0; i < numSpaces; ++i)
                 terminal::bufferWrite(' ');
             terminal::bufferWrite(control::sgr::resetBgColor);
