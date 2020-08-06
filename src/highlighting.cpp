@@ -92,7 +92,7 @@ void Highlighting::reset()
 void Highlighting::update(const TextBuffer& text)
 {
     auto tree = parser_.parse(
-        tree_.get(),
+        nullptr, // If we want to reuse the tree, we actually have to call edit
         [&text](size_t index, TSPoint) {
             const auto str = text.getString(index);
             return std::make_pair(str.data(), str.size());
