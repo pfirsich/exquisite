@@ -36,10 +36,12 @@ set(SRC
 )
 # list(TRANSFORM SRC PREPEND src/) CMake on Ubuntu 18.04 can't do this
 
+add_subdirectory(deps/fmt)
 add_subdirectory(deps/treesitter)
 
 add_executable(exquisite ${SRC})
 target_include_directories(exquisite PUBLIC src)
 target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)
+target_link_libraries(exquisite fmt)
 set_wall(exquisite)

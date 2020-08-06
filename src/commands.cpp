@@ -132,7 +132,7 @@ editor::StatusMessage commandPaletteCallback(std::string_view input)
     const auto it = std::find_if(palette.begin(), palette.end(),
         [input](const PaletteEntry& entry) { return entry.title == input; });
     std::iter_swap(it, palette.end() - 1);
-    debug("Command: ", palette.back().title);
+    debug("Command: {}", palette.back().title);
     palette.back().command();
     return editor::StatusMessage {};
 }

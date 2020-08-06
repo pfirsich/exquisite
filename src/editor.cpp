@@ -275,19 +275,18 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 void drawStatusBar(const Vec& terminalSize)
 {
     static const auto pid = getpid();
-    std::stringstream ss;
+    fmt::memory_buffer line;
     const auto lang = buffer.getLanguage();
     if (lang)
-        ss << lang->name << "  ";
-    ss << buffer.getCursor().start.y + 1 << "/" << buffer.getText().getLineCount() << "  [" << pid
-       << "]";
-    const auto lines = ss.str();
+        fmt::format_to(line, "{}  ", lang->name);
+    fmt::format_to(
+        line, "{}/{}  [{}]", buffer.getCursor().start.y + 1, buffer.getText().getLineCount(), pid);
 
     std::string status;
     status.reserve(terminalSize.x);
     status.append(" "s + (buffer.isModified() ? "*"s : ""s) + buffer.name);
-    status.append(subClamp(subClamp(terminalSize.x, lines.size()), status.size()), ' ');
-    status.append(lines);
+    status.append(subClamp(subClamp(terminalSize.x, line.size()), status.size()), ' ');
+    status.append(std::string_view(line.data(), line.size()));
 
     terminal::bufferWrite(control::sgr::invert);
     terminal::bufferWrite(status);
@@ -491,7 +490,6 @@ void Prompt::selectUp()
     if (selectedOption_ > 0) {
         // the check is wrap around
         for (size_t i = selectedOption_ - 1; i < selectedOption_; --i) {
-            debug("score ", i, ": ", options_[i].score);
             if (options_[i].score > 0) {
                 selectedOption_ = i;
                 break;

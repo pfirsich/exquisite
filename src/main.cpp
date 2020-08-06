@@ -80,18 +80,17 @@ std::string getCurrentIndent()
 
 void debugKey(const Key& key)
 {
-    debug("key hex (", key.bytes.size(), "): ", hexString(key.bytes.data(), key.bytes.size()));
+    debug("key hex ({}): {}", key.bytes.size(), hexString(key.bytes.data(), key.bytes.size()));
     if (key.bytes[0] == '\x1b') {
-        debug("escape: ", std::string_view(key.bytes.data() + 1, key.bytes.size() - 1));
+        debug("escape: {}", std::string_view(key.bytes.data() + 1, key.bytes.size() - 1));
     }
-    debug("ctrl: ", key.modifiers.test(Modifiers::Ctrl),
-        ", alt: ", key.modifiers.test(Modifiers::Alt),
-        ", shift: ", key.modifiers.test(Modifiers::Shift));
+    debug("ctrl: {}, alt: {}, shift: {}", key.modifiers.test(Modifiers::Ctrl),
+        key.modifiers.test(Modifiers::Alt), key.modifiers.test(Modifiers::Shift));
 
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
-        debug("special: ", toString(*special));
+        debug("special: {}", toString(*special));
     } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        debug("utf8seq (", seq->length, "): ", std::string_view(&seq->bytes[0], seq->length));
+        debug("utf8seq ({}): {}", seq->length, std::string_view(&seq->bytes[0], seq->length));
     }
 }
 

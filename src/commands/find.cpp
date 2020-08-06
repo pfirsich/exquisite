@@ -82,11 +82,11 @@ std::string& getLastFind()
 
 std::string resultString(const FindResult& res, std::string_view input)
 {
-    std::stringstream ss;
-    ss << res.matchIndex + 1 << "/" << res.occurences << " matches";
+    fmt::memory_buffer buf;
+    fmt::format_to(buf, "{}/{} matches", res.matchIndex + 1, res.occurences);
     if (!hasNewlines(input))
-        ss << " for '" << input << "'";
-    return ss.str();
+        fmt::format_to(buf, " for {}", input);
+    return fmt::to_string(buf);
 }
 
 std::pair<FindResult, editor::StatusMessage> getFindStatus(std::string_view input, FindMode mode)

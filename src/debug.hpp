@@ -1,24 +1,19 @@
 #pragma once
 
+#include <cassert>
 #include <cstdio>
 #include <memory>
-#include <sstream>
-#include <string>
-#include <string_view>
 
-template <typename... Args>
-std::string stringify(Args&&... args)
-{
-    std::stringstream ss;
-    (ss << ... << args);
-    return ss.str();
-}
+#include <fmt/format.h>
 
-template <typename... Args>
-void debug(Args&&... args)
+template <typename String, typename... Args>
+void debug([[maybe_unused]] String&& format, [[maybe_unused]] Args&&... args)
 {
-    const auto str = stringify(std::forward<Args>(args)..., "\n");
+#ifndef NDEBUG
     // I don't use the function from util.hpp here, so this file is self-contained
     auto f = std::unique_ptr<FILE, decltype(&fclose)>(fopen("debug.log", "a"), &fclose);
-    fwrite(str.data(), 1, str.size(), f.get());
+    assert(f);
+    fmt::print(f.get(), format, std::forward<Args>(args)...);
+    fmt::print(f.get(), "\n");
+#endif
 }

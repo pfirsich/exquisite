@@ -352,14 +352,14 @@ void Buffer::moveCursorRight(bool select)
         const auto cpLen
             = utf8::getCodePointLength(text_, text_.getSize(), line.offset + cursor_.start.x);
         cursor_.setX(cursor_.start.x + cpLen, select);
-        debug("skipped utf8: cursorX = ", cursor_.start.x);
+        debug("skipped utf8: cursorX = {}", cursor_.start.x);
         return;
     }
 
     // single code unit of utf8 or ascii
     if (cursor_.start.x < line.length) {
         cursor_.setX(cursor_.start.x + 1, select);
-        debug("skipped ascii: cursorX = ", cursor_.start.x);
+        debug("skipped ascii: cursorX = {}", cursor_.start.x);
     }
 }
 

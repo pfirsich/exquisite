@@ -16,8 +16,9 @@ void printWithMarker(std::string_view str, size_t offset)
     }();
     const auto errorLineEnd
         = std::distance(str.begin(), std::find(str.begin() + errorLineOffset, str.end(), '\n'));
-    debug(str.substr(0, errorLineEnd), '\n');
-    debug(std::string(offset - errorLineOffset, ' '), "^\n");
+    debug(str.substr(0, errorLineEnd));
+    debug(std::string(offset - errorLineOffset, ' '));
+    debug("^\n");
     debug(str.substr(errorLineEnd));
 }
 
@@ -28,7 +29,7 @@ Highlighter::Highlighter(const TSLanguage* language, std::string_view querySourc
     const auto error = query.getError();
     if (error.second != ts::QueryError::None) {
         printWithMarker(querySource, error.first);
-        debug("Error: ", static_cast<TSQueryError>(error.second), " at ", error.first, '\n');
+        debug("Error: {} at {}", static_cast<TSQueryError>(error.second), error.first);
         std::exit(1);
     }
 }
