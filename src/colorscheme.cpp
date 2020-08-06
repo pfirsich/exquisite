@@ -11,7 +11,7 @@ ColorScheme colorScheme = {
     { "error.prompt", 1 },
     { "highlight.currentline", 238 },
     { "highlight.match.prompt", 243 },
-    { "highlight.match.find", 240 },
+    { "highlight.selection", 240 },
 
     // code
     { "identifier", 39 },

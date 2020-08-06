@@ -48,9 +48,14 @@ namespace {
             current_ = v;
         }
 
+        Value get() const
+        {
+            return current_;
+        }
+
     private:
         std::vector<std::string> values_;
-        size_t current_ = 0;
+        Value current_ = 0;
     };
 
     StatusMessage statusMessage;
@@ -59,6 +64,7 @@ namespace {
 
 Buffer buffer;
 
+// THIS THING IS WILD
 Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& config)
 {
     terminal::bufferWrite(control::sgr::reset);
@@ -89,6 +95,22 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
     auto drawCursor = Vec { lineNumWidth + pos.x, pos.y + cursor.y - buf.getScroll() };
 
     const auto selection = buf.getSelection();
+    const auto selectionStr = buffer.getSelectionString();
+    auto matchSelection = [&text, &selectionStr](size_t index) {
+        for (size_t i = 0; i < selectionStr.size(); ++i) {
+            if (i > text.getSize() || text[index + i] != selectionStr[i])
+                return false;
+        }
+        return true;
+    };
+    size_t highlightSelectionUntil = 0;
+
+    enum class Background { Normal = 0, CurrentLine, Highlight };
+    LazyTerminalState<Background> background({
+        std::string(control::sgr::resetBgColor),
+        std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
+        std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.selection"],
+    });
 
     buf.updateHighlighting();
     const auto highlighting = buf.getHighlighting();
@@ -109,10 +131,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         // reset fg color before each line
         terminal::bufferWrite(control::sgr::resetFgColor);
 
-        if (config.highlightCurrentLine && cursorInLine) {
-            terminal::bufferWrite(control::sgr::bgColorPrefix);
-            terminal::bufferWrite(colorScheme["highlight.currentline"]);
-        }
+        background.set(Background::Normal);
 
         if (l > firstLine && pos.x > 0) // moving by 0 would still move 1 (default)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
@@ -125,8 +144,12 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
                 terminal::bufferWrite(' ');
             terminal::bufferWrite(lineStr);
             terminal::bufferWrite(' '); // right margin
-            invert.set(false);
         }
+        invert.set(false);
+
+        const auto lineBg = config.highlightCurrentLine && cursorInLine ? Background::CurrentLine
+                                                                        : Background::Normal;
+        background.set(lineBg);
 
         const auto cursorX = buf.getCursorX(cursor);
 
@@ -151,6 +174,11 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
 
             const bool selected = selection.contains(i);
             invert.set(selected);
+
+            if (!selected && i >= highlightSelectionUntil && matchSelection(i))
+                highlightSelectionUntil = i + selectionStr.size();
+
+            background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
 
             if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
                 // If whitespace is not rendered, this will fall into "else"
@@ -199,8 +227,12 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
             drawCursor.x += std::min(lineCursor, cursorX);
         }
 
-        // reset fg color for after line
+        // reset fg color after line
         terminal::bufferWrite(control::sgr::resetFgColor);
+
+        // background for newline
+        invert.set(selection.contains(i));
+        background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
 
         // The index will be < size but not \n only if we didn't draw the whole line
         const bool drawNewline = config.renderWhitespace && config.newlineChar
@@ -210,12 +242,14 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
             terminal::bufferWrite(*config.newlineChar);
         }
 
+        invert.set(false);
+        background.set(lineBg);
+
         if (config.highlightCurrentLine && cursorInLine) {
             const auto numSpaces
                 = subClamp(subClamp(textWidth, lineCursor), drawNewline ? 1ul : 0ul);
             for (size_t i = 0; i < numSpaces; ++i)
                 terminal::bufferWrite(' ');
-            terminal::bufferWrite(control::sgr::resetBgColor);
         }
 
         faint.set(false);
@@ -223,6 +257,7 @@ Vec drawBuffer(Buffer& buf, const Vec& pos, const Vec& size, const Config& confi
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+    terminal::bufferWrite(control::sgr::resetBgColor);
     terminal::bufferWrite(control::sgr::resetFgColor);
 
     for (size_t y = lastLine + 1; y < size.y + 1; ++y) {
@@ -275,7 +310,7 @@ Vec drawPrompt(const Vec& terminalSize)
         const auto skip = std::min(currentPrompt->getNumMatchingOptions() - numOptions,
             selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
 
-        enum Background { Normal = 0, Selected, Highlight };
+        enum class Background { Normal = 0, CurrentLine, Highlight };
         LazyTerminalState<Background> background({
             std::string(control::sgr::resetBgColor),
             std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
@@ -299,7 +334,7 @@ Vec drawPrompt(const Vec& terminalSize)
         for (size_t n = 0; n < numOptions; ++n) {
             assert(index < options.size());
             const bool isSelected = index == selected;
-            const auto bg = isSelected ? Background::Selected : Background::Normal;
+            const auto bg = isSelected ? Background::CurrentLine : Background::Normal;
             background.set(bg);
 
             const auto& opt = options[index];

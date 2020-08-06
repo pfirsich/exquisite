@@ -217,8 +217,8 @@ bool Buffer::shouldMerge(const TextAction& action) const
 
 void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
 {
-    auto action = TextAction { this, getCursorOffset(cursor_.min()),
-        text_.getString(getSelection()), std::string(text), cursor_, cursorAfter };
+    auto action = TextAction { this, getCursorOffset(cursor_.min()), getSelectionString(),
+        std::string(text), cursor_, cursorAfter };
     actions_.perform(std::move(action), shouldMerge(action));
 }
 
@@ -291,6 +291,11 @@ Range Buffer::getSelection() const
     if (endOffset < startOffset)
         std::swap(startOffset, endOffset);
     return Range { startOffset, endOffset - startOffset };
+}
+
+std::string Buffer::getSelectionString() const
+{
+    return text_.getString(getSelection());
 }
 
 void Buffer::select(const Range& range)

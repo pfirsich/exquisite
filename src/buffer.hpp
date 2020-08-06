@@ -67,6 +67,7 @@ public:
     size_t getCursorX(const Cursor::End& cursorEnd) const;
     size_t getCursorOffset(const Cursor::End& cursorEnd) const;
     Range getSelection() const;
+    std::string getSelectionString() const;
 
     void select(const Range& range); // can use range.length = 0 to set cursor pos
     void moveCursorHome(bool select);
