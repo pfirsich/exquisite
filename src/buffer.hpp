@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "actionstack.hpp"
+#include "config.hpp"
 #include "languages.hpp"
 #include "textbuffer.hpp"
 #include "util.hpp"
@@ -41,6 +42,8 @@ class Buffer {
 public:
     std::string name;
     fs::path path;
+    size_t tabWidth = config.defaultTabWidth;
+    Indentation indentation = config.defaultIndentation;
 
     Buffer();
 
@@ -64,6 +67,9 @@ public:
     void deleteSelection();
     void deleteBackwards();
     void deleteForwards();
+    void insertNewline();
+    void indent();
+    void dedent();
 
     const Cursor& getCursor() const;
     // This will return the cursorX position clamped to the line length
@@ -102,6 +108,8 @@ private:
 
     bool shouldMerge(const TextAction& action) const;
     void performAction(std::string_view text, const Cursor& cursorAfter);
+
+    std::string_view getLineDedent(std::string_view line) const;
 
     TextBuffer text_;
     ActionStack<TextAction> actions_;

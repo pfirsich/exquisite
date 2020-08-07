@@ -9,6 +9,8 @@
 #include <variant>
 #include <vector>
 
+#include "config.hpp"
+
 namespace fs = std::filesystem;
 
 // I don't want to type this every time I use it (quite a bit)
@@ -66,3 +68,10 @@ std::string readAll(int fd);
 
 bool countNewlines(std::string_view str);
 bool hasNewlines(std::string_view str);
+
+size_t getNextLineOffset(std::string_view text, size_t offset);
+
+Indentation getLineIndent(std::string_view line);
+Indentation detectIndentation(std::string_view text);
+
+std::optional<int> toInt(const std::string& str, int base = 10);

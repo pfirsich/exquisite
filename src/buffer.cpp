@@ -103,6 +103,7 @@ void Buffer::setText(std::string_view str)
     actions_.clear();
     cursor_ = Cursor {};
     scroll_ = 0;
+    indentation = detectIndentation(str);
     savedVersionId_ = std::numeric_limits<size_t>::max();
 }
 
@@ -257,6 +258,9 @@ void Buffer::performAction(std::string_view text, const Cursor& cursorAfter)
 
 void Buffer::insert(std::string_view str)
 {
+    if (readOnly_)
+        return;
+
     // If you select text and start typing, I want a separate undo action for deleting the selection
     if (!cursor_.emptySelection() && str.size() == 1)
         deleteSelection();
@@ -276,6 +280,9 @@ void Buffer::insert(std::string_view str)
 
 void Buffer::deleteSelection()
 {
+    if (readOnly_)
+        return;
+
     assert(!cursor_.emptySelection());
     auto cursorAfter = cursor_;
     cursorAfter.set(cursor_.min());
@@ -284,6 +291,9 @@ void Buffer::deleteSelection()
 
 void Buffer::deleteBackwards()
 {
+    if (readOnly_)
+        return;
+
     if (text_.getSize() == 0)
         return;
 
@@ -296,6 +306,9 @@ void Buffer::deleteBackwards()
 
 void Buffer::deleteForwards()
 {
+    if (readOnly_)
+        return;
+
     if (text_.getSize() == 0)
         return;
 
@@ -304,6 +317,111 @@ void Buffer::deleteForwards()
         moveCursorRight(true);
     deleteSelection();
     actions_.getTop().cursorBefore = cursorBefore;
+}
+
+void Buffer::insertNewline()
+{
+    if (readOnly_)
+        return;
+
+    const auto indent = getLineIndent(text_.getString(text_.getLine(cursor_.min().y)));
+    insert("\n" + indent.getString());
+}
+
+// THIS IS SO COMPLICATED
+void Buffer::indent()
+{
+    if (readOnly_)
+        return;
+
+    const auto indentStr = indentation.getString();
+    // If multiple lines are selected, insert an indent string at the start of each
+    if (!cursor_.emptySelection() && countNewlines(getSelectionString()) > 0) {
+        const auto firstLine = cursor_.min().y;
+        const auto lastLine = cursor_.max().y;
+        auto cursorAfter = Cursor {
+            { cursor_.start.x + indentStr.size(), cursor_.start.y },
+            { cursor_.end.x + indentStr.size(), cursor_.end.y },
+        };
+        for (size_t l = firstLine; l < lastLine + 1; ++l) {
+            // I'm really not sure how to handle the cursor, so I just change it with the last
+            // action/insertion
+            actions_.perform(TextAction { this, text_.getLine(l).offset, "", indentStr, cursor_,
+                                 l == lastLine ? cursorAfter : cursor_ },
+                l > firstLine);
+        }
+        return;
+    }
+
+    // This shit is easy
+    if (indentation.type == Indentation::Type::Tabs) {
+        insert("\t");
+        return;
+    }
+
+    // This shit is NOT easy
+    const auto line = text_.getLine(cursor_.start.y);
+    const auto lineIndent = getLineIndent(text_.getString(line));
+    assert(lineIndent.type == Indentation::Type::Spaces);
+
+    const auto cursorOffset = getCursorOffset(cursor_.start);
+    const auto cursorLineOffset = cursorOffset - line.offset;
+
+    if (lineIndent.type != Indentation::Type::Spaces) {
+        // garbage in, garbage out, you asshole
+        insert(indentStr);
+        return;
+    }
+
+    // If you are before any text (inside the indentation), align to proper indentation
+    // or just indent once more
+    const auto insideIndentation = cursorLineOffset < lineIndent.width;
+    if (insideIndentation) {
+        const auto targetIndent
+            = lineIndent.width + indentation.width - (lineIndent.width % indentation.width);
+        insert(std::string(targetIndent - lineIndent.width, ' '));
+    } else {
+        // TODO: count code points here, not bytes!
+        const auto targetIndent
+            = cursorLineOffset + indentation.width - (cursorLineOffset % indentation.width);
+        insert(std::string(targetIndent - cursorLineOffset, ' '));
+    }
+}
+
+std::string_view Buffer::getLineDedent(std::string_view line) const
+{
+    const auto indent = getLineIndent(line);
+    // Get rid of 1 tab, no matter what indentation the buffer actually uses
+    if (indent.type == Indentation::Type::Tabs)
+        return line.substr(0, 1);
+
+    if (indentation.type == Indentation::Type::Spaces)
+        return line.substr(0, std::min(indent.width, indentation.width));
+
+    // Screw you
+    return line.substr(0, std::min(indent.width, tabWidth));
+}
+
+void Buffer::dedent()
+{
+    if (readOnly_)
+        return;
+
+    const auto firstLine = cursor_.min().y;
+    const auto lastLine = cursor_.max().y;
+    auto cursorAfter = cursor_;
+    for (size_t l = firstLine; l < lastLine + 1; ++l) {
+        const auto line = text_.getLine(l);
+        const auto lineStr = text_.getString(line);
+        auto textBefore = getLineDedent(lineStr);
+        if (l == cursorAfter.start.y)
+            cursorAfter.start.x = subClamp(cursorAfter.start.x, textBefore.size());
+        if (l == cursorAfter.end.y)
+            cursorAfter.end.x = subClamp(cursorAfter.end.x, textBefore.size());
+        actions_.perform(TextAction { this, line.offset, std::string(textBefore), "", cursor_,
+                             l == lastLine ? cursorAfter : cursor_ },
+            l > firstLine);
+    }
 }
 
 size_t Buffer::getCursorX(const Cursor::End& cursorEnd) const

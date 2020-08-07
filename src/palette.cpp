@@ -19,6 +19,9 @@ std::vector<PaletteEntry>& getPalette()
         { "Rename Buffer", commands::renameBuffer() },
         { "Show Shortcut Help", commands::showShortcutHelp() },
         { "Toggle Buffer Read-Only", commands::toggleBufferReadOnly() },
+        { "Indent Using Spaces", commands::indentUsingSpaces() },
+        { "Indent Using Tagbs", commands::indentUsingTabs() },
+        { "Set Tab Width", commands::setTabWidth() },
     };
     std::sort(palette.begin(), palette.end(),
         [](const PaletteEntry& a, const PaletteEntry& b) { return a.title < b.title; });

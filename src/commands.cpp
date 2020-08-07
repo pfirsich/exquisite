@@ -316,4 +316,44 @@ Command showShortcutHelp()
         editor::getBuffer().setReadOnly();
     };
 }
+
+namespace {
+    editor::StatusMessage indentUsingSpacesCallback(std::string_view input)
+    {
+        const auto num = toInt(std::string(input));
+        if (!num || *num < 1)
+            return editor::StatusMessage { "Invalid input", editor::StatusMessage::Type::Error };
+        editor::getBuffer().indentation
+            = Indentation { Indentation::Type::Spaces, static_cast<size_t>(*num) };
+        return editor::getStatusMessage();
+    }
+}
+
+Command indentUsingSpaces()
+{
+    return []() {
+        editor::setPrompt(editor::Prompt { "Number Of Spaces> ", indentUsingSpacesCallback });
+    };
+}
+
+Command indentUsingTabs()
+{
+    return []() { editor::getBuffer().indentation = Indentation { Indentation::Type::Tabs, 1 }; };
+}
+
+namespace {
+    editor::StatusMessage setTabWidthCallback(std::string_view input)
+    {
+        const auto num = toInt(std::string(input));
+        if (!num || *num < 1)
+            return editor::StatusMessage { "Invalid input", editor::StatusMessage::Type::Error };
+        editor::getBuffer().tabWidth = static_cast<size_t>(*num);
+        return editor::getStatusMessage();
+    }
+}
+
+Command setTabWidth()
+{
+    return []() { editor::setPrompt(editor::Prompt { "Tab Width> ", setTabWidthCallback }); };
+}
 }

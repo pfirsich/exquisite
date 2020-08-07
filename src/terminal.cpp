@@ -230,6 +230,8 @@ std::optional<Key> readKey()
                             return Key(seq, modifiers, *movementKey);
                     }
                 }
+            } else if (seq[2] == 'Z') { // weird, I know
+                return Key(seq, Modifiers::Shift, SpecialKey::Tab);
             } else {
                 const auto movementKey = getMovementKey(seq[2]);
                 if (movementKey)

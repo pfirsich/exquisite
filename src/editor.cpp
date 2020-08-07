@@ -178,6 +178,8 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 }
             }
 
+            const bool moveCursor = cursorInLine && i - line.offset < cursorX;
+
             const bool selected = selection.contains(i);
             invert.set(selected);
 
@@ -192,27 +194,41 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 terminal::bufferWrite(*config.spaceChar);
 
                 lineCursor++;
+                if (moveCursor)
+                    drawCursor.x++;
             } else if (ch == '\t') {
+                faint.set(true);
                 const bool tabChars = config.tabStartChar || config.tabMidChar || config.tabEndChar;
-                assert(config.tabWidth > 0);
+                assert(buffer.tabWidth > 0);
+                std::string tabStr;
+                tabStr.reserve(buffer.tabWidth);
                 if (config.renderWhitespace && tabChars) {
-                    if (config.tabWidth >= 2)
-                        terminal::bufferWrite(*config.tabStartChar);
-                    for (size_t i = 0; i < config.tabWidth - 2; ++i)
-                        terminal::bufferWrite(*config.tabMidChar);
-                    terminal::bufferWrite(*config.tabEndChar);
+                    if (buffer.tabWidth >= 2)
+                        tabStr.append(*config.tabStartChar);
+                    for (size_t i = 0; i < buffer.tabWidth - 2; ++i)
+                        tabStr.append(*config.tabMidChar);
+                    tabStr.append(*config.tabEndChar);
                 } else {
-                    for (size_t i = 0; i < config.tabWidth; ++i)
-                        terminal::bufferWrite(' ');
+                    if (lineCursor + buffer.tabWidth > textWidth)
+                        tabStr = std::string(textWidth - lineCursor, ' ');
+                    else
+                        tabStr = std::string(buffer.tabWidth, ' ');
                 }
+                terminal::bufferWrite(tabStr);
 
-                lineCursor += config.tabWidth;
+                lineCursor += tabStr.size();
+                if (moveCursor)
+                    drawCursor.x += tabStr.size();
             } else if (std::iscntrl(ch)) {
                 faint.set(true);
-                const auto str = getControlString(ch);
+                auto str = getControlString(ch);
+                if (lineCursor + str.size() > textWidth)
+                    str = str.substr(0, textWidth - lineCursor);
                 terminal::bufferWrite(str);
 
                 lineCursor += str.size();
+                if (moveCursor)
+                    drawCursor.x += str.size();
             } else {
                 const auto len = utf8::getCodePointLength(text, text.getSize(), i);
 
@@ -224,13 +240,12 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 // Always assume each code point is one character on screen
                 // This is probably wrong for a lot of stuff (emojis and such), but what can I do?
                 lineCursor++;
+                if (moveCursor)
+                    drawCursor.x++;
             }
 
             if (lineCursor >= textWidth)
                 break;
-        }
-        if (cursorInLine) {
-            drawCursor.x += std::min(lineCursor, cursorX);
         }
 
         // reset fg color after line
@@ -286,18 +301,21 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
 void drawStatusBar(const Buffer& buffer, const Vec& terminalSize)
 {
     static const auto pid = getpid();
-    fmt::memory_buffer line;
-    const auto lang = buffer.getLanguage();
-    if (lang)
-        fmt::format_to(line, "{}  ", lang->name);
-    fmt::format_to(
-        line, "{}/{}  [{}]", buffer.getCursor().start.y + 1, buffer.getText().getLineCount(), pid);
+
+    assert(buffer.indentation.type == Indentation::Type::Spaces
+        || buffer.indentation.type == Indentation::Type::Tabs);
+    const auto indent = buffer.indentation.type == Indentation::Type::Spaces
+        ? fmt::format("Spaces: {}", buffer.indentation.width)
+        : fmt::format("Tabs");
+
+    const auto line = fmt::format("{}/{}  {}  {}  [{}]", buffer.getCursor().start.y + 1,
+        buffer.getText().getLineCount(), indent, buffer.getLanguage()->name, pid);
 
     std::string status;
     status.reserve(terminalSize.x);
     status.append(" "s + buffer.getTitle());
     status.append(subClamp(subClamp(terminalSize.x, line.size()), status.size()), ' ');
-    status.append(std::string_view(line.data(), line.size()));
+    status.append(line);
 
     terminal::bufferWrite(control::sgr::invert);
     terminal::bufferWrite(status);

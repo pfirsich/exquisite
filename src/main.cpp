@@ -44,12 +44,16 @@ bool processBufferInput(Buffer& buffer, const Key& key)
             buffer.moveCursorEnd(select);
             return true;
         case SpecialKey::Backspace:
-            if (!buffer.getReadOnly())
-                buffer.deleteBackwards();
+            buffer.deleteBackwards();
             return true;
         case SpecialKey::Delete:
-            if (!buffer.getReadOnly())
-                buffer.deleteForwards();
+            buffer.deleteForwards();
+            return true;
+        case SpecialKey::Tab:
+            if (select)
+                buffer.dedent();
+            else
+                buffer.indent();
             return true;
         default:
             return false;
@@ -65,21 +69,6 @@ bool processBufferInput(Buffer& buffer, const Key& key)
         die("Invalid Key variant");
     }
     return false;
-}
-
-std::string getCurrentIndent(const Buffer& buffer)
-{
-    std::string indent;
-    indent.reserve(32);
-    const auto line = buffer.getText().getLine(buffer.getCursor().min().y);
-    for (size_t i = line.offset; i < line.offset + line.length; ++i) {
-        const auto ch = buffer.getText()[i];
-        if (ch == ' ' || ch == '\t')
-            indent.push_back(ch);
-        else
-            break;
-    }
-    return indent;
 }
 
 void debugKey(const Key& key)
@@ -113,8 +102,11 @@ void processInput(Buffer& buffer, const Key& key)
             buffer.moveCursorY(1, select);
             break;
         case SpecialKey::Return:
-            if (!buffer.getReadOnly())
-                buffer.insert("\n" + getCurrentIndent(buffer));
+            if (!buffer.getReadOnly()) {
+                if (key.modifiers.test(Modifiers::Alt))
+                    buffer.moveCursorEnd(false);
+                buffer.insertNewline();
+            }
             break;
         default:
             break;

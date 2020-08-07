@@ -29,4 +29,7 @@ Command toggleBufferReadOnly();
 Command closeBuffer();
 Command showBufferList();
 Command showShortcutHelp();
+Command indentUsingSpaces();
+Command indentUsingTabs();
+Command setTabWidth();
 }
