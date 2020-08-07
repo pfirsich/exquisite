@@ -550,7 +550,8 @@ void Prompt::update()
         for (auto& opt : options_)
             opt.score = 1; // so they are considered matching
 
-        std::sort(options_.begin(), options_.end(),
+        // So the order they were passed to the prompt initially is kept
+        std::stable_sort(options_.begin(), options_.end(),
             [](const Option& a, const Option& b) { return a.originalIndex < b.originalIndex; });
 
         selectedOption_ = options_.size() - 1;
@@ -558,7 +559,7 @@ void Prompt::update()
         for (auto& opt : options_)
             opt.score = fuzzyMatchScore(inputStr, opt.str, &opt.matchedCharacters);
 
-        std::sort(options_.begin(), options_.end(),
+        std::stable_sort(options_.begin(), options_.end(),
             [](const Option& a, const Option& b) { return a.score < b.score; });
 
         // It's sorted, so if the last one is score = 0, they all are.
@@ -641,6 +642,8 @@ std::unique_ptr<Prompt>& getPrompt()
 void setPrompt(Prompt&& prompt)
 {
     currentPrompt = std::make_unique<Prompt>(std::move(prompt));
+    // We need to update, so the score is at least 1 if the input is empty and
+    // if the input is non-empty update callbacks are called.
     currentPrompt->update();
 }
 

@@ -308,6 +308,11 @@ Command showBufferList()
             const auto& buffer = editor::getBuffer(i);
             buffers.push_back(buffer.getTitle());
         }
+        // I just assume you don't want to switch to the buffer you are currently using,
+        // if you do, just press escape.
+        // This allows this command to be used to switch to the most recently used buffer.
+        if (buffers.size() > 1)
+            std::rotate(buffers.begin(), buffers.begin() + 1, buffers.end());
         std::reverse(buffers.begin(), buffers.end());
         editor::setPrompt(editor::Prompt { "> ", showBufferListCallback, buffers });
     };
