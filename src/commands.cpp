@@ -136,8 +136,11 @@ namespace {
              it != fs::recursive_directory_iterator(); ++it) {
             if (it->path().filename().c_str()[0] == '.')
                 it.disable_recursion_pending();
-            if (it->is_regular_file())
+
+            std::error_code ec;
+            if (it->is_regular_file(ec))
                 files.push_back(it->path().lexically_relative("./"));
+            // If there was an error, we just ignore it
         }
         return files;
     }
@@ -146,7 +149,12 @@ namespace {
 Command gotoFile()
 {
     return []() {
-        editor::setPrompt(editor::Prompt { "> ", openPromptCallback, walkDirectory() });
+        try {
+            editor::setPrompt(editor::Prompt { "> ", openPromptCallback, walkDirectory() });
+        } catch (const fs::filesystem_error& exc) {
+            editor::setStatusMessage(fmt::format("Error walking directory: {}", exc.what()),
+                editor::StatusMessage::Type::Error);
+        }
     };
 }
 
