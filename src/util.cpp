@@ -59,8 +59,6 @@ std::string readAll(int fd)
     int n = 0;
     while ((n = ::read(fd, &buf[0], bufSize)) > 0) {
         str.append(&buf[0], n);
-        if (n < bufSize)
-            break;
     }
     return str;
 }

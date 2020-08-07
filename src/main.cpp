@@ -216,6 +216,8 @@ int main(int argc, char** argv)
     if (opts.debug)
         logDebugToFile = true;
 
+    debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
+
     if (!opts.files.empty()) {
         for (const auto& file : opts.files) {
             fs::path path = file;
@@ -242,8 +244,6 @@ int main(int argc, char** argv)
         if (lang->highlighter)
             lang->highlighter->setColorScheme(colorScheme);
     }
-
-    debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 
     terminal::init();
 
