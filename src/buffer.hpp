@@ -52,6 +52,7 @@ public:
     bool readFromFile(const fs::path& path);
     void readFromStdin();
     bool save();
+    bool rename(const fs::path& newPath);
     bool isModified() const;
     std::string getTitle() const;
     void setLanguage(const Language* language);

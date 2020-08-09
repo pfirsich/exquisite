@@ -8,6 +8,7 @@ std::vector<PaletteEntry>& getPalette()
         { "Open File", commands::openFile() },
         { "Save File", commands::saveFile() },
         { "Save File As", commands::saveFileAs() },
+        { "Rename File", commands::renameFile() },
         { "Undo", commands::undo() },
         { "Redo", commands::redo() },
         { "Goto File", commands::gotoFile() },

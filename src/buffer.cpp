@@ -152,6 +152,15 @@ bool Buffer::save()
     return true;
 }
 
+bool Buffer::rename(const fs::path& newPath)
+{
+    if (::rename(path.c_str(), newPath.c_str()) != 0) {
+        return false;
+    }
+    path = newPath;
+    return true;
+}
+
 bool Buffer::isModified() const
 {
     return actions_.getCurrentVersionId() != savedVersionId_;

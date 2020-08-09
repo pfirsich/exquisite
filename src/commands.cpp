@@ -110,6 +110,27 @@ Command saveFileAs()
     return []() { editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback }); };
 }
 
+namespace {
+    editor::StatusMessage renameFileCallback(std::string_view input)
+    {
+        if (!editor::getBuffer().rename(fs::path(input))) {
+            return editor::StatusMessage { fmt::format("Error: {}", strerror(errno)),
+                editor::StatusMessage::Type::Error };
+        }
+        return editor::StatusMessage {};
+    }
+}
+
+Command renameFile()
+{
+    return []() {
+        auto prompt = editor::Prompt { "New Path> ", renameFileCallback };
+        prompt.input.setText(editor::getBuffer().path.string());
+        prompt.input.moveCursorEnd(true);
+        editor::setPrompt(std::move(prompt));
+    };
+}
+
 Command undo()
 {
     return []() {

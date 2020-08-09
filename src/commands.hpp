@@ -13,6 +13,7 @@ Command clearStatusLine();
 Command openFile(std::string_view path = "");
 Command saveFile(std::string_view path = "");
 Command saveFileAs();
+Command renameFile();
 Command undo();
 Command redo();
 Command gotoFile();
