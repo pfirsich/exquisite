@@ -13,6 +13,7 @@
 #include "commands.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
+#include "eventhandler.hpp"
 #include "shortcuts.hpp"
 #include "terminal.hpp"
 #include "util.hpp"
@@ -249,7 +250,13 @@ int main(int argc, char** argv)
 
     editor::redraw();
 
-    while (true) {
+    const auto redraw = eventHandler.addCustomHandler([] {
+        debug("redraw");
+        editor::redraw();
+    });
+
+    eventHandler.addFdHandler(STDIN_FILENO, [&redraw] {
+        debug("read stdin");
         const auto key = terminal::readKey();
         if (key) {
             debugKey(*key);
@@ -257,10 +264,11 @@ int main(int argc, char** argv)
                 processPromptInput(*key);
             else
                 processInput(editor::getBuffer(), *key);
+            redraw.second.emit();
         }
+    });
 
-        editor::redraw();
-    }
+    eventHandler.run();
 
     return 0;
 }

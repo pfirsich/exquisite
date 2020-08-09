@@ -11,6 +11,14 @@ if (EXQUISITE_ENABLE_ASAN)
   include(cmake/asan.cmake)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(PLATFORM "linux")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(PLATFORM "mac")
+else()
+  message(FATAL_ERROR "Building is not supported on this platform")
+endif()
+
 set(SRC
   src/buffer.cpp
   src/clipboard.cpp
@@ -20,6 +28,9 @@ set(SRC
   src/config.cpp
   src/control.cpp
   src/editor.cpp
+  src/eventhandler.cpp
+  src/eventhandler_${PLATFORM}.cpp
+  src/fd.cpp
   src/fuzzy.cpp
   src/highlighting.cpp
   src/key.cpp

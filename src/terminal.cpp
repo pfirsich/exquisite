@@ -68,7 +68,7 @@ void init()
     ios.c_lflag &= ~(ISIG); // Don't get SIGINT on Ctrl-C or SIGTSTP on Ctrl-Z
 
     ios.c_cc[VMIN] = 0; // minimum numbers to be read
-    ios.c_cc[VTIME] = 1; // read() timeout
+    ios.c_cc[VTIME] = 0; // read() timeout
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &ios))
         die("tcsetattr");
@@ -145,13 +145,13 @@ std::optional<SpecialKey> getMovementKey(char ch)
 
 std::optional<Key> readKey()
 {
-    int nread;
     char ch = 0;
     // Loop until we get an error or a character
-    while ((nread = read(STDIN_FILENO, &ch, 1)) != 1) {
-        if (nread == -1 && errno != EAGAIN)
-            die("read");
-    }
+    const int nread = ::read(STDIN_FILENO, &ch, 1);
+    if (nread == -1 && errno != EAGAIN)
+        die("read");
+    if (nread == 0)
+        return std::nullopt;
 
     std::vector<char> seq { ch };
     seq.reserve(32);
