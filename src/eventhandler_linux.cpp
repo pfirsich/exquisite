@@ -67,18 +67,32 @@ void EventHandlerImpl::processEvents()
     if (ret == 0)
         return;
 
+    // We need to first collect all the handlers we want to call and then call them, so
+    // it's possible for them to remove handlers.
+    // We save the ids so if a handler is removed, it's not called during this call of
+    // processEvents. Future you, you wanted to collect the callbacks itself and if you did, they
+    // would still be called.
+    // Example: If a callback (i.e. input - Ctrl-W) closes a buffer and you
+    // remove the filesystem watch, you want the filesystem watch to not be called anymore
+    // (potentially with a dangling pointer).
+    std::vector<HandlerId> handlers;
+    handlers.reserve(pollFds.size());
     for (const auto& pfd : pollFds) {
         if (pfd.revents & POLLIN) {
-            const auto& handler = handlers_[fdMap_.at(pfd.fd)];
-            if (const auto fdh = std::get_if<FdHandler>(&handler)) {
-                fdh->callback();
-            } else if (const auto ch = std::get_if<CustomHandler>(&handler)) {
-                uint64_t val = 0;
-                ::read(ch->fd, &val, 8);
-                ch->callback();
-            } else {
-                assert(false && "Invalid variant state");
-            }
+            handlers.push_back(fdMap_.at(pfd.fd));
+        }
+    }
+
+    for (const auto handlerId : handlers) {
+        const auto& handler = handlers_[handlerId];
+        if (const auto fdh = std::get_if<FdHandler>(&handler)) {
+            fdh->callback();
+        } else if (const auto ch = std::get_if<CustomHandler>(&handler)) {
+            uint64_t val = 0;
+            ::read(ch->fd, &val, 8);
+            ch->callback();
+        } else {
+            assert(false && "Invalid variant state");
         }
     }
 }
