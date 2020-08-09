@@ -325,7 +325,7 @@ void Buffer::insertNewline()
         return;
 
     const auto indent = getLineIndent(text_.getString(text_.getLine(cursor_.min().y)));
-    insert("\n" + indent.getString());
+    insert("\n"s + (indent.type != Indentation::Type::Unknown ? indent.getString() : ""s));
 }
 
 // THIS IS SO COMPLICATED
