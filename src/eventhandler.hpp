@@ -6,6 +6,9 @@
 #include <memory>
 #include <queue>
 
+// We don't actually need this header here, but I want the signals to be included with this header
+#include <signal.h>
+
 #include "bitmask.hpp"
 
 namespace fs = std::filesystem;
@@ -31,7 +34,7 @@ public:
 
     EventHandler();
 
-    HandlerId addSignalHandler(uint32_t signal, std::function<void()> callback);
+    HandlerId addSignalHandler(int signum, std::function<void()> callback);
 
     HandlerId addTimer(uint64_t interval, uint64_t expiration, std::function<void()> callback);
 

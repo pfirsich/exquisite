@@ -255,6 +255,12 @@ int main(int argc, char** argv)
         editor::redraw();
     });
 
+    eventHandler.addSignalHandler(SIGWINCH, [&redraw] {
+        debug("sigwinch handler");
+        // If the terminal resized, we just redraw, because we get the size there anyway
+        redraw.second.emit();
+    });
+
     eventHandler.addFdHandler(STDIN_FILENO, [&redraw] {
         debug("read stdin");
         const auto key = terminal::readKey();

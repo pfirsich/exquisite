@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include <sys/eventfd.h>
+#include <sys/signalfd.h>
 #include <unistd.h>
 
 #include "debug.hpp"
@@ -14,15 +15,35 @@ CustomEventImpl::CustomEventImpl(int fd)
 
 void CustomEventImpl::emit() const
 {
-    debug("emit to fd: {}", fd_);
     const uint64_t value = 1;
     ::write(fd_, &value, sizeof(value));
 }
 
 EventHandlerImpl::HandlerId EventHandlerImpl::addSignalHandler(
-    uint32_t /*signal*/, std::function<void()> /*callback*/)
+    int signum, std::function<void()> callback)
 {
-    return 0;
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, signum);
+
+    // We have to block the signal for the process, if we want to receive it via signalfd.
+    // This mask will be inherited by forked processes!
+    // As the man page suggests, we should unblock the blocked signals between fork and exec in
+    // process.cpp.
+    // If any library we use ever forks somewhere, this might go super wrong though.
+    // https://news.ycombinator.com/item?id=9564975 - Maybe only set the mask before poll?
+    const auto err = sigprocmask(SIG_BLOCK, &sigset, nullptr);
+    if (err != 0) {
+        std::perror("sigprocmask");
+        std::exit(1);
+    }
+
+    const auto fd = ::signalfd(-1, &sigset, 0);
+    if (fd < 0) {
+        std::perror("signalfd");
+        std::exit(1);
+    }
+    return addHandler(SignalHandler { Fd(fd), callback }, fd);
 }
 
 EventHandlerImpl::HandlerId EventHandlerImpl::addTimer(
@@ -45,8 +66,11 @@ EventHandlerImpl::HandlerId EventHandlerImpl::addFdHandler(int fd, std::function
 std::pair<EventHandlerImpl::HandlerId, CustomEvent> EventHandlerImpl::addCustomHandler(
     std::function<void()> callback)
 {
-    auto fd = ::eventfd(0, 0);
-    debug("eventfd: {}", fd);
+    const auto fd = ::eventfd(0, 0);
+    if (fd < 0) {
+        std::perror("eventfd");
+        std::exit(1);
+    }
     const auto id = addHandler(CustomHandler { Fd(fd), callback }, fd);
     return std::pair<HandlerId, CustomEvent>(
         id, CustomEvent(std::make_unique<CustomEventImpl>(fd)));
@@ -58,7 +82,6 @@ void EventHandlerImpl::removeHandler(HandlerId /*handle*/)
 
 void EventHandlerImpl::processEvents()
 {
-    debug("poll");
     const auto ret = poll(&pollFds[0], pollFds.size(), -1);
     if (ret < 0) {
         std::perror("poll");
@@ -85,7 +108,11 @@ void EventHandlerImpl::processEvents()
 
     for (const auto handlerId : handlers) {
         const auto& handler = handlers_[handlerId];
-        if (const auto fdh = std::get_if<FdHandler>(&handler)) {
+        if (const auto sh = std::get_if<SignalHandler>(&handler)) {
+            signalfd_siginfo info;
+            ::read(sh->fd, &info, sizeof(signalfd_siginfo));
+            sh->callback();
+        } else if (const auto fdh = std::get_if<FdHandler>(&handler)) {
             fdh->callback();
         } else if (const auto ch = std::get_if<CustomHandler>(&handler)) {
             uint64_t val = 0;

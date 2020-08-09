@@ -27,10 +27,9 @@ EventHandler::EventHandler()
 {
 }
 
-EventHandler::HandlerId EventHandler::addSignalHandler(
-    uint32_t signal, std::function<void()> callback)
+EventHandler::HandlerId EventHandler::addSignalHandler(int signum, std::function<void()> callback)
 {
-    return impl_->addSignalHandler(signal, callback);
+    return impl_->addSignalHandler(signum, callback);
 }
 
 EventHandler::HandlerId EventHandler::addTimer(

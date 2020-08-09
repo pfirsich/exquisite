@@ -21,7 +21,7 @@ class EventHandlerImpl {
 public:
     using HandlerId = EventHandler::HandlerId;
 
-    HandlerId addSignalHandler(uint32_t signal, std::function<void()> callback);
+    HandlerId addSignalHandler(int signum, std::function<void()> callback);
 
     HandlerId addTimer(uint64_t interval, uint64_t expiration, std::function<void()> callback);
 
@@ -36,6 +36,11 @@ public:
     void processEvents();
 
 private:
+    struct SignalHandler {
+        Fd fd;
+        std::function<void()> callback;
+    };
+
     struct FdHandler {
         std::function<void()> callback;
     };
@@ -45,7 +50,7 @@ private:
         std::function<void()> callback;
     };
 
-    using Handler = std::variant<FdHandler, CustomHandler>;
+    using Handler = std::variant<SignalHandler, FdHandler, CustomHandler>;
 
     HandlerId addHandler(Handler&& handler, int fd);
 
