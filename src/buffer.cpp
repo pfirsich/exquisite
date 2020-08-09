@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "debug.hpp"
+#include "editor.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
 
@@ -93,8 +94,12 @@ size_t Buffer::getScroll() const
 
 void Buffer::setPath(const fs::path& p)
 {
+    debug("set path");
     path = p;
     name = p.filename();
+    if (fs::exists(p)) {
+        watchFileModifications();
+    }
 }
 
 void Buffer::setText(std::string_view str)
@@ -120,6 +125,7 @@ bool Buffer::readFromFile(const fs::path& p)
     if (ext[0] == '.')
         ext = ext.substr(1);
     setLanguage(languages::getFromExt(ext));
+    lastModTime_ = fs::last_write_time(path);
     return true;
 }
 
@@ -131,9 +137,54 @@ void Buffer::readFromStdin()
     path = "";
 }
 
+void Buffer::watchFileModifications()
+{
+    debug("watch file modifications");
+    fileModHandler_.reset(&getEventHandler(), getEventHandler().addFilesystemHandler(path, [this] {
+        debug("modified");
+        if (!isModified()) {
+            reload();
+            editor::triggerRedraw();
+        }
+    }));
+}
+
+void Buffer::setTextUndoable(std::string text)
+{
+    const auto lines = countNewlines(text);
+    auto cursorAfter = cursor_;
+    cursorAfter.start.y = std::min(lines - 1, cursorAfter.start.y);
+    cursorAfter.end.y = std::min(lines - 1, cursorAfter.end.y);
+    // It's okay if x is large
+    auto action = TextAction { this, 0, text_.getString(), std::move(text), cursor_, cursorAfter };
+    actions_.perform(std::move(action));
+}
+
+bool Buffer::reload()
+{
+    assert(!path.empty());
+    const auto data = readFile(path.c_str());
+    if (!data)
+        return false;
+    setTextUndoable(std::move(*data));
+    savedVersionId_ = actions_.getCurrentVersionId();
+    lastModTime_ = fs::last_write_time(path);
+    return true;
+}
+
+bool Buffer::canSave() const
+{
+    assert(!path.empty());
+    if (!fs::exists(path))
+        return true;
+
+    return lastModTime_ >= fs::last_write_time(path);
+}
+
 bool Buffer::save()
 {
     assert(!path.empty());
+
     FILE* f = fopen(path.c_str(), "wb");
     if (!f) {
         debug("Could not open file");
@@ -149,6 +200,11 @@ bool Buffer::save()
         return false;
     }
     savedVersionId_ = actions_.getCurrentVersionId();
+    lastModTime_ = fs::last_write_time(path);
+
+    if (!fileModHandler_.isValid())
+        watchFileModifications();
+
     return true;
 }
 
@@ -157,7 +213,7 @@ bool Buffer::rename(const fs::path& newPath)
     if (::rename(path.c_str(), newPath.c_str()) != 0) {
         return false;
     }
-    path = newPath;
+    setPath(newPath);
     return true;
 }
 

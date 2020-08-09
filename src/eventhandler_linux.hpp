@@ -21,6 +21,8 @@ class EventHandlerImpl {
 public:
     using HandlerId = EventHandler::HandlerId;
 
+    EventHandlerImpl();
+
     HandlerId addSignalHandler(int signum, std::function<void()> callback);
 
     HandlerId addTimer(uint64_t interval, uint64_t expiration, std::function<void()> callback);
@@ -37,8 +39,14 @@ public:
 
 private:
     struct SignalHandler {
-        Fd fd;
         std::function<void()> callback;
+        Fd fd;
+    };
+
+    struct FilesystemHandler {
+        std::function<void()> callback;
+        fs::path path; // I need to save it, so I can re-add when I get IN_IGNORED
+        int wd;
     };
 
     struct FdHandler {
@@ -46,17 +54,21 @@ private:
     };
 
     struct CustomHandler {
-        Fd fd;
         std::function<void()> callback;
+        Fd fd;
     };
 
-    using Handler = std::variant<SignalHandler, FdHandler, CustomHandler>;
+    using Handler = std::variant<SignalHandler, FilesystemHandler, FdHandler, CustomHandler>;
 
-    HandlerId addHandler(Handler&& handler, int fd);
+    HandlerId addHandler(Handler&& handler);
+    HandlerId addHandlerFd(Handler&& handler, int fd);
+    HandlerId addHandlerWd(Handler&& handler, int wd);
 
     size_t handlerIdCounter_ = 0;
     std::vector<Handler> handlers_;
     std::unordered_map<HandlerId, size_t> handlerIdMap_;
     std::unordered_map<int, size_t> fdMap_;
+    std::unordered_map<int, size_t> wdMap_;
     std::vector<pollfd> pollFds;
+    Fd inotifyFd;
 };

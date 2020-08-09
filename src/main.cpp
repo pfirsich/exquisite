@@ -217,6 +217,10 @@ int main(int argc, char** argv)
     if (opts.debug)
         logDebugToFile = true;
 
+    // HACK: We force the event handler to be instantiated first, so it's destructed after all the
+    // buffers. This is to avoid a segfault on exit.
+    getEventHandler();
+
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 
     if (!opts.files.empty()) {
@@ -250,18 +254,13 @@ int main(int argc, char** argv)
 
     editor::redraw();
 
-    const auto redraw = eventHandler.addCustomHandler([] {
-        debug("redraw");
-        editor::redraw();
-    });
-
-    eventHandler.addSignalHandler(SIGWINCH, [&redraw] {
+    getEventHandler().addSignalHandler(SIGWINCH, [] {
         debug("sigwinch handler");
         // If the terminal resized, we just redraw, because we get the size there anyway
-        redraw.second.emit();
+        editor::triggerRedraw();
     });
 
-    eventHandler.addFdHandler(STDIN_FILENO, [&redraw] {
+    getEventHandler().addFdHandler(STDIN_FILENO, [] {
         debug("read stdin");
         const auto key = terminal::readKey();
         if (key) {
@@ -270,11 +269,11 @@ int main(int argc, char** argv)
                 processPromptInput(*key);
             else
                 processInput(editor::getBuffer(), *key);
-            redraw.second.emit();
+            editor::triggerRedraw();
         }
     });
 
-    eventHandler.run();
+    getEventHandler().run();
 
     return 0;
 }

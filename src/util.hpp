@@ -66,7 +66,7 @@ std::optional<std::string> readFile(const fs::path& path);
 
 std::string readAll(int fd);
 
-bool countNewlines(std::string_view str);
+size_t countNewlines(std::string_view str);
 bool hasNewlines(std::string_view str);
 
 size_t getNextLineOffset(std::string_view text, size_t offset);

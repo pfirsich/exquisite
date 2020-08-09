@@ -63,7 +63,7 @@ std::string readAll(int fd)
     return str;
 }
 
-bool countNewlines(std::string_view str)
+size_t countNewlines(std::string_view str)
 {
     return std::count(str.begin(), str.end(), '\n');
 }

@@ -20,7 +20,7 @@ class CustomEvent {
 public:
     CustomEvent(std::unique_ptr<CustomEventImpl> impl);
     ~CustomEvent();
-    CustomEvent(CustomEvent&&) = default;
+    CustomEvent(CustomEvent&&);
 
     void emit() const;
 
@@ -31,6 +31,7 @@ private:
 class EventHandler {
 public:
     using HandlerId = size_t;
+    static constexpr auto InvalidHandlerId = std::numeric_limits<HandlerId>::max();
 
     EventHandler();
 
@@ -44,7 +45,11 @@ public:
     // Currently only notifies if an fd is readable, because that's all I need
     HandlerId addFdHandler(int fd, std::function<void()> callback);
 
+    // When you call emit on the CustomEvent returned, the callback will be called in the next
+    // processEvents. If emit is called multiple times before that, the callback is only called
+    // once.
     std::pair<HandlerId, CustomEvent> addCustomHandler(std::function<void()> callback);
+
     void removeHandler(HandlerId handle);
 
     void run(); // blocks until terminate is called
@@ -58,4 +63,27 @@ private:
     std::atomic<bool> running { true };
 };
 
-extern EventHandler eventHandler;
+class ScopedHandlerHandle {
+public:
+    ScopedHandlerHandle();
+    ScopedHandlerHandle(EventHandler& eventHandler, EventHandler::HandlerId id);
+    ScopedHandlerHandle(const ScopedHandlerHandle&) = delete;
+    ScopedHandlerHandle& operator=(const ScopedHandlerHandle&) = delete;
+    ScopedHandlerHandle(ScopedHandlerHandle&& other);
+    ScopedHandlerHandle& operator=(ScopedHandlerHandle&& other);
+    ~ScopedHandlerHandle();
+
+    EventHandler& getEventHandler() const;
+    EventHandler::HandlerId getHandlerId() const;
+    bool isValid() const;
+
+    void reset(EventHandler* eventHandler, EventHandler::HandlerId id);
+    void reset();
+    EventHandler::HandlerId release();
+
+private:
+    EventHandler* eventHandler_ = nullptr;
+    EventHandler::HandlerId id_ = EventHandler::InvalidHandlerId;
+};
+
+EventHandler& getEventHandler();

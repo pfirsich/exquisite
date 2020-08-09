@@ -4,6 +4,7 @@
 
 #include "actionstack.hpp"
 #include "config.hpp"
+#include "eventhandler.hpp"
 #include "languages.hpp"
 #include "textbuffer.hpp"
 #include "util.hpp"
@@ -49,8 +50,12 @@ public:
 
     void setPath(const fs::path& path);
     void setText(std::string_view str);
+    void setTextUndoable(std::string str);
     bool readFromFile(const fs::path& path);
     void readFromStdin();
+    void watchFileModifications();
+    bool reload();
+    bool canSave() const;
     bool save();
     bool rename(const fs::path& newPath);
     bool isModified() const;
@@ -120,4 +125,8 @@ private:
     const Language* language_ = &languages::plainText;
     std::unique_ptr<Highlighting> highlighting_;
     bool readOnly_ = false;
+    ScopedHandlerHandle fileModHandler_; // handler callback captures `this`!
+    // This is initialized with the clock's epoch, so the modification time on disk, will always
+    // be greater than this (or equal).
+    fs::file_time_type lastModTime_;
 };

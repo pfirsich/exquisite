@@ -37,7 +37,7 @@ Command quit()
             if (editor::getBuffer(i).isModified()) {
                 editor::selectBuffer(i);
                 editor::setPrompt(
-                    editor::Prompt { "Unsaved Changes! Really quit [y/n]?> ", quitPromptCallback });
+                    editor::Prompt { "Unsaved Changes! Really quit? [y/n]> ", quitPromptCallback });
                 return;
             }
         }
@@ -75,14 +75,38 @@ Command openFile(std::string_view path)
 };
 
 namespace {
+    editor::StatusMessage saveBuffer()
+    {
+        if (!editor::getBuffer().save())
+            return editor::StatusMessage { "Error saving file",
+                editor::StatusMessage::Type::Error };
+        else
+            return editor::StatusMessage { "Saved" };
+    }
+
+    editor::StatusMessage overwriteCallback(std::string_view input)
+    {
+        if (isYes(input))
+            return saveBuffer();
+        return editor::getStatusMessage();
+    }
+
+    editor::StatusMessage saveAskOverwrite()
+    {
+        if (!editor::getBuffer().canSave()) {
+            editor::setPrompt(editor::Prompt {
+                "File already exists or is newer than last saved version. Overwrite? [y/n]> ",
+                overwriteCallback });
+            return editor::getStatusMessage();
+        } else {
+            return saveBuffer();
+        }
+    }
+
     editor::StatusMessage savePromptCallback(std::string_view input)
     {
         editor::getBuffer().setPath(fs::path(input));
-        if (!editor::getBuffer().save()) {
-            return editor::StatusMessage { "Error saving file",
-                editor::StatusMessage::Type::Error };
-        }
-        return editor::StatusMessage { "Saved to '" + std::string(input) + "'" };
+        return saveAskOverwrite();
     }
 }
 
@@ -93,11 +117,7 @@ Command saveFile(std::string_view path)
             if (editor::getBuffer().path.empty()) {
                 editor::setPrompt(editor::Prompt { "Save File> ", savePromptCallback });
             } else {
-                if (!editor::getBuffer().save())
-                    editor::setStatusMessage(
-                        "Error saving file", editor::StatusMessage::Type::Error);
-                else
-                    editor::setStatusMessage("Saved");
+                editor::setStatusMessage(saveAskOverwrite());
             }
         };
     } else {

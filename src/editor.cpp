@@ -9,6 +9,7 @@
 #include "config.hpp"
 #include "control.hpp"
 #include "debug.hpp"
+#include "eventhandler.hpp"
 #include "fuzzy.hpp"
 #include "terminal.hpp"
 #include "utf8.hpp"
@@ -60,11 +61,16 @@ namespace {
 
     StatusMessage statusMessage;
     std::unique_ptr<Prompt> currentPrompt;
+    bool readOnly = false;
+}
+
+auto& getBuffers()
+{
     // Maybe this should actually be a std::list?
     // I need to use a vector of unique_ptr here, because Actions use pointers to Buffers
     // (they need to be stable).
-    std::vector<std::unique_ptr<Buffer>> buffers;
-    bool readOnly = false;
+    static std::vector<std::unique_ptr<Buffer>> buffers;
+    return buffers;
 }
 
 // THIS THING IS WILD
@@ -450,6 +456,12 @@ void redraw()
     terminal::flushWrite();
 }
 
+void triggerRedraw()
+{
+    static CustomEvent event = getEventHandler().addCustomHandler([] { editor::redraw(); }).second;
+    event.emit();
+}
+
 void setReadOnly()
 {
     readOnly = true;
@@ -473,6 +485,7 @@ namespace {
 
 Buffer& openBuffer()
 {
+    auto& buffers = getBuffers();
     // If current buffer is empty scratch buffer, don't open a new one, but effectively replace it
     if (!buffers.empty() && buffers[0]->path.empty() && buffers[0]->getText().getSize() == 0)
         return *buffers[0];
@@ -491,12 +504,14 @@ Buffer& openBuffer()
 
 void selectBuffer(size_t index)
 {
+    auto& buffers = getBuffers();
     assert(index < buffers.size());
     std::swap(buffers[0], buffers[index]);
 }
 
 bool selectBuffer(const fs::path& path)
 {
+    auto& buffers = getBuffers();
     for (size_t i = 0; i < buffers.size(); ++i) {
         if (buffers[i]->path == path) {
             selectBuffer(i);
@@ -508,17 +523,19 @@ bool selectBuffer(const fs::path& path)
 
 size_t getBufferCount()
 {
-    return buffers.size();
+    return getBuffers().size();
 }
 
 Buffer& getBuffer(size_t index)
 {
+    auto& buffers = getBuffers();
     assert(index < buffers.size());
     return *buffers[index];
 }
 
 void closeBuffer(size_t index)
 {
+    auto& buffers = getBuffers();
     buffers.erase(buffers.begin() + index);
     if (buffers.empty())
         openBuffer();

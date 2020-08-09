@@ -68,6 +68,7 @@ Buffer& getBuffer(size_t index = 0);
 void closeBuffer(size_t index = 0);
 
 void redraw();
+void triggerRedraw();
 
 void setStatusMessage(
     const std::string& message, StatusMessage::Type type = StatusMessage::Type::Normal);
