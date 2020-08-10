@@ -22,7 +22,7 @@ struct Config {
 
     bool renderWhitespace = true;
     std::optional<std::string_view> spaceChar = "·"sv;
-    std::optional<std::string_view> newlineChar = "↵"sv;
+    std::optional<std::string_view> newlineChar = "$"sv;
     std::optional<std::string_view> tabStartChar = "-"sv;
     std::optional<std::string_view> tabMidChar = "-"sv;
     std::optional<std::string_view> tabEndChar = ">"sv;
