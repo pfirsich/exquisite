@@ -232,7 +232,7 @@ std::string Buffer::getTitle() const
         title.push_back('*');
 
     if (readOnly_)
-        title.append("[read-only] ");
+        title.append("[ro] ");
 
     if (path.empty())
         title.append(name);

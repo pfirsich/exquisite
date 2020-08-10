@@ -314,14 +314,19 @@ void drawStatusBar(const Buffer& buffer, const Vec& terminalSize)
         ? fmt::format("Spaces: {}", buffer.indentation.width)
         : fmt::format("Tabs");
 
-    const auto line = fmt::format("{}/{}  {}  {}  [{}]", buffer.getCursor().start.y + 1,
+    const auto info = fmt::format(" {}/{}  {}  {}  [{}]", buffer.getCursor().start.y + 1,
         buffer.getText().getLineCount(), indent, buffer.getLanguage()->name, pid);
+    const auto infoSize = std::min(terminalSize.x - 1, info.size());
+
+    const auto title = buffer.getTitle();
+    const auto titleSize = std::min(terminalSize.x - 1, subClamp(terminalSize.x - 1, infoSize));
 
     std::string status;
     status.reserve(terminalSize.x);
-    status.append(" "s + buffer.getTitle());
-    status.append(subClamp(subClamp(terminalSize.x, line.size()), status.size()), ' ');
-    status.append(line);
+    status.push_back(' ');
+    status.append(std::string_view(title).substr(0, titleSize));
+    status.append(subClamp(subClamp(terminalSize.x - 1, status.size()), infoSize), ' ');
+    status.append(std::string_view(info).substr(0, infoSize));
 
     terminal::bufferWrite(control::sgr::invert);
     terminal::bufferWrite(status);
