@@ -27,6 +27,8 @@ struct Config {
     std::optional<std::string_view> tabMidChar = "-"sv;
     std::optional<std::string_view> tabEndChar = ">"sv;
 
+    bool trimTrailingWhitespaceOnSave = true;
+
     bool showLineNumbers = true;
 
     size_t highlightCurrentLine = true;

@@ -160,3 +160,27 @@ std::optional<int> toInt(const std::string& str, int base)
         return std::nullopt;
     }
 }
+
+std::string trimTrailingWhitespace(std::string_view str)
+{
+    // Essentially we write all characters, except whitespace and remember when that whitespace
+    // sequence started. When we encounter a newline, we drop our buffer of whitespace characters
+    // and when we encounter a non-whitespace character, we flush that whitespace buffer.
+    size_t lastWsSeqStart = 0; // last whitespace sequence start
+    std::string out;
+    out.reserve(str.size());
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '\n') {
+            out.push_back(str[i]);
+            lastWsSeqStart = i + 1;
+        } else if (std::isspace(str[i])) {
+            // don't move lastWsSeqStart, because the whitespace sequence is still going
+        } else {
+            for (size_t j = lastWsSeqStart; j <= i; ++j) {
+                out.push_back(str[j]);
+            }
+            lastWsSeqStart = i + 1;
+        }
+    }
+    return out;
+}

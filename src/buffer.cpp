@@ -185,6 +185,9 @@ bool Buffer::save()
 {
     assert(!path.empty());
 
+    if (config.trimTrailingWhitespaceOnSave)
+        setTextUndoable(trimTrailingWhitespace(text_.getString()));
+
     FILE* f = fopen(path.c_str(), "wb");
     if (!f) {
         debug("Could not open file");

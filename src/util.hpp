@@ -75,3 +75,5 @@ Indentation getLineIndent(std::string_view line);
 Indentation detectIndentation(std::string_view text);
 
 std::optional<int> toInt(const std::string& str, int base = 10);
+
+std::string trimTrailingWhitespace(std::string_view str);
