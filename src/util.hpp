@@ -71,7 +71,9 @@ bool hasNewlines(std::string_view str);
 
 size_t getNextLineOffset(std::string_view text, size_t offset);
 
-Indentation getLineIndent(std::string_view line);
+// Returns the width in bytes and in characters (tabs align to tab stops)
+std::pair<size_t, size_t> getIndentWidth(std::string_view line, size_t tabWidth);
+
 Indentation detectIndentation(std::string_view text);
 
 std::optional<int> toInt(const std::string& str, int base = 10);

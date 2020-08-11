@@ -366,8 +366,30 @@ void Buffer::deleteBackwards()
         return;
 
     const auto cursorBefore = cursor_;
-    if (cursor_.emptySelection())
-        moveCursorLeft(true);
+    if (cursor_.emptySelection()) {
+        const auto line = text_.getLine(cursor_.start.y);
+        const auto cursorOffset = getCursorOffset(cursor_.start);
+        const auto cursorLineOffset = cursorOffset - line.offset;
+
+        if (cursorLineOffset == 0 || text_[cursorOffset - 1] == '\t') {
+            moveCursorLeft(true);
+        } else {
+            const auto lineStr = text_.getString(line);
+            const auto [numIndentBytes, indentWidth] = getIndentWidth(lineStr, tabWidth);
+            const auto insideIndentation = cursorLineOffset <= numIndentBytes;
+            if (insideIndentation) {
+                assert(cursorLineOffset > 0);
+                assert(text_[cursorOffset - 1] == ' ');
+                const auto deleteNum = indentWidth % indentation.width > 0
+                    ? indentWidth % indentation.width
+                    : indentation.width;
+                for (size_t i = 0; i < deleteNum; ++i)
+                    moveCursorLeft(true);
+            } else {
+                moveCursorLeft(true);
+            }
+        }
+    }
     deleteSelection();
     actions_.getTop().cursorBefore = cursorBefore;
 }
@@ -392,11 +414,11 @@ void Buffer::insertNewline()
     if (readOnly_)
         return;
 
-    const auto indent = getLineIndent(text_.getString(text_.getLine(cursor_.min().y)));
-    insert("\n"s + (indent.type != Indentation::Type::Unknown ? indent.getString() : ""s));
+    const auto lineStr = text_.getString(text_.getLine(cursor_.min().y));
+    const auto indentWidth = getIndentWidth(lineStr, tabWidth);
+    insert("\n"s + lineStr.substr(0, indentWidth.first));
 }
 
-// THIS IS SO COMPLICATED
 void Buffer::indent()
 {
     if (readOnly_)
@@ -421,53 +443,46 @@ void Buffer::indent()
         return;
     }
 
-    // This shit is easy
     if (indentation.type == Indentation::Type::Tabs) {
         insert("\t");
         return;
     }
 
-    // This shit is NOT easy
+    assert(indentation.type == Indentation::Type::Spaces);
     const auto line = text_.getLine(cursor_.start.y);
-    const auto lineIndent = getLineIndent(text_.getString(line));
-    assert(lineIndent.type == Indentation::Type::Spaces);
+    const auto [numIndentBytes, indentWidth] = getIndentWidth(text_.getString(line), tabWidth);
 
     const auto cursorOffset = getCursorOffset(cursor_.start);
     const auto cursorLineOffset = cursorOffset - line.offset;
 
-    if (lineIndent.type != Indentation::Type::Spaces) {
-        // garbage in, garbage out, you asshole
-        insert(indentStr);
-        return;
-    }
-
-    // If you are before any text (inside the indentation), align to proper indentation
-    // or just indent once more
-    const auto insideIndentation = cursorLineOffset < lineIndent.width;
+    // If you are before any text (inside the indentation) indent to next tab stop
+    const auto insideIndentation = cursorLineOffset <= numIndentBytes;
     if (insideIndentation) {
         const auto targetIndent
-            = lineIndent.width + indentation.width - (lineIndent.width % indentation.width);
-        insert(std::string(targetIndent - lineIndent.width, ' '));
+            = indentWidth + indentation.width - (indentWidth % indentation.width);
+        insert(std::string(targetIndent - indentWidth, ' '));
     } else {
-        // TODO: count code points here, not bytes!
-        const auto targetIndent
-            = cursorLineOffset + indentation.width - (cursorLineOffset % indentation.width);
-        insert(std::string(targetIndent - cursorLineOffset, ' '));
+        // TODO: do this properly (count all tabs properly and also count code points)
+        insert(indentStr);
     }
 }
 
-std::string_view Buffer::getLineDedent(std::string_view line) const
+std::string Buffer::getLineDedent(std::string_view line) const
 {
-    const auto indent = getLineIndent(line);
-    // Get rid of 1 tab, no matter what indentation the buffer actually uses
-    if (indent.type == Indentation::Type::Tabs)
-        return line.substr(0, 1);
+    const auto indentChar = line[0];
+    if (indentChar == '\t')
+        return std::string(line.substr(0, 1));
 
-    if (indentation.type == Indentation::Type::Spaces)
-        return line.substr(0, std::min(indent.width, indentation.width));
+    if (indentChar == ' ') {
+        size_t leadingSpaces = 1;
+        while (
+            leadingSpaces < std::min(line.size(), indentation.width) && line[leadingSpaces] == ' ')
+            leadingSpaces++;
+        return std::string(line.substr(0, leadingSpaces));
+    }
 
-    // Screw you
-    return line.substr(0, std::min(indent.width, tabWidth));
+    // Don't remove anything
+    return std::string("");
 }
 
 void Buffer::dedent()
@@ -486,7 +501,7 @@ void Buffer::dedent()
             cursorAfter.start.x = subClamp(cursorAfter.start.x, textBefore.size());
         if (l == cursorAfter.end.y)
             cursorAfter.end.x = subClamp(cursorAfter.end.x, textBefore.size());
-        actions_.perform(TextAction { this, line.offset, std::string(textBefore), "", cursor_,
+        actions_.perform(TextAction { this, line.offset, std::move(textBefore), "", cursor_,
                              l == lastLine ? cursorAfter : cursor_ },
             l > firstLine);
     }

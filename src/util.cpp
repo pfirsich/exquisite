@@ -73,7 +73,22 @@ bool hasNewlines(std::string_view str)
     return str.find('\n') != std::string_view::npos;
 }
 
-Indentation getLineIndent(std::string_view line)
+std::pair<size_t, size_t> getIndentWidth(std::string_view line, size_t tabWidth)
+{
+    size_t width = 0;
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (line[i] == ' ') {
+            width++;
+        } else if (line[i] == '\t') {
+            width = width + tabWidth - (width % tabWidth);
+        } else {
+            return std::pair(i, width);
+        }
+    }
+    return std::pair(line.size(), width);
+}
+
+Indentation detectLineIndent(std::string_view line)
 {
     const auto indentChar = line[0];
     Indentation indent;
@@ -112,7 +127,7 @@ Indentation detectIndentation(std::string_view text)
     Indentation lastIndent;
     while (lineOffset < text.size()) {
         const auto endOffset = getNextLineOffset(text, lineOffset);
-        const auto indent = getLineIndent(text.substr(lineOffset, endOffset - lineOffset));
+        const auto indent = detectLineIndent(text.substr(lineOffset, endOffset - lineOffset));
 
         if (indent.type != Indentation::Type::Unknown
             && lastIndent.type != Indentation::Type::Unknown) {

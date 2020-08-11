@@ -115,7 +115,7 @@ private:
     bool shouldMerge(const TextAction& action) const;
     void performAction(std::string_view text, const Cursor& cursorAfter);
 
-    std::string_view getLineDedent(std::string_view line) const;
+    std::string getLineDedent(std::string_view line) const;
 
     TextBuffer text_;
     ActionStack<TextAction> actions_;
