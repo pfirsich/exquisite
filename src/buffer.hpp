@@ -89,6 +89,8 @@ public:
     void moveCursorEnd(bool select);
     void moveCursorLeft(bool select);
     void moveCursorRight(bool select);
+    void moveCursorWordLeft(bool select);
+    void moveCursorWordRight(bool select);
     void moveCursorY(int dy, bool select);
 
     size_t getScroll() const;

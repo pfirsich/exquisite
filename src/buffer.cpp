@@ -597,6 +597,48 @@ void Buffer::moveCursorRight(bool select)
     }
 }
 
+namespace {
+enum class WordType { AlphaNum, Whitespace, SpecialChars };
+
+WordType getWordType(char ch)
+{
+    if (std::isspace(ch))
+        return WordType::Whitespace;
+    if (ch == '_')
+        return WordType::AlphaNum; // for snake_case identifiers
+    if (ch > 0 && !(std::iscntrl(ch) || std::isalnum(ch)))
+        return WordType::SpecialChars;
+    return WordType::AlphaNum;
+}
+}
+
+// We are doing things a little differently and go to the start of a word (in walking direction)
+void Buffer::moveCursorWordLeft(bool select)
+{
+    auto off = getCursorOffset(cursor_.start);
+    if (off == 0)
+        return;
+
+    const auto wordType = getWordType(text_[off - 1]);
+    while (off > 0 && getWordType(text_[off - 1]) == wordType) {
+        moveCursorLeft(select);
+        off = getCursorOffset(cursor_.start);
+    }
+}
+
+void Buffer::moveCursorWordRight(bool select)
+{
+    auto off = getCursorOffset(cursor_.start);
+    if (off == text_.getSize())
+        return;
+
+    const auto wordType = getWordType(text_[off]);
+    while (off < text_.getSize() && getWordType(text_[off]) == wordType) {
+        moveCursorRight(select);
+        off = getCursorOffset(cursor_.start);
+    }
+}
+
 void Buffer::moveCursorLeft(bool select)
 {
     if (!cursor_.emptySelection() && !select) {

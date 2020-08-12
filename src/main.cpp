@@ -23,26 +23,33 @@ bool processBufferInput(Buffer& buffer, const Key& key)
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
         // debug("special: ", toString(*special));
         const auto size = terminal::getSize();
-        const bool select = key.modifiers.test(Modifiers::Shift);
+        const bool ctrl = key.modifiers.test(Modifiers::Ctrl);
+        const bool shift = key.modifiers.test(Modifiers::Shift);
         switch (*special) {
         case SpecialKey::Left:
-            buffer.moveCursorLeft(select);
+            if (ctrl)
+                buffer.moveCursorWordLeft(shift);
+            else
+                buffer.moveCursorLeft(shift);
             return true;
         case SpecialKey::Right:
-            buffer.moveCursorRight(select);
+            if (ctrl)
+                buffer.moveCursorWordRight(shift);
+            else
+                buffer.moveCursorRight(shift);
             return true;
         case SpecialKey::PageUp:
             // I actually don't really know how much a page is here
-            buffer.moveCursorY(-(size.y - 3), select);
+            buffer.moveCursorY(-(size.y - 3), shift);
             return true;
         case SpecialKey::PageDown:
-            buffer.moveCursorY(size.y - 3, select);
+            buffer.moveCursorY(size.y - 3, shift);
             return true;
         case SpecialKey::Home:
-            buffer.moveCursorHome(select);
+            buffer.moveCursorHome(shift);
             return true;
         case SpecialKey::End:
-            buffer.moveCursorEnd(select);
+            buffer.moveCursorEnd(shift);
             return true;
         case SpecialKey::Backspace:
             buffer.deleteBackwards();
@@ -51,7 +58,7 @@ bool processBufferInput(Buffer& buffer, const Key& key)
             buffer.deleteForwards();
             return true;
         case SpecialKey::Tab:
-            if (select)
+            if (shift)
                 buffer.dedent();
             else
                 buffer.indent();
