@@ -75,7 +75,7 @@ void setStatusMessage(
 void setStatusMessage(const StatusMessage& message);
 StatusMessage getStatusMessage();
 
-std::unique_ptr<Prompt>& getPrompt();
+Prompt* getPrompt();
 void setPrompt(Prompt&& prompt);
 void confirmPrompt();
 void abortPrompt();

@@ -656,9 +656,9 @@ const std::string& Prompt::getUpdateMessage() const
     return updateMessage_;
 }
 
-std::unique_ptr<Prompt>& getPrompt()
+Prompt* getPrompt()
 {
-    return currentPrompt;
+    return currentPrompt.get();
 }
 
 void setPrompt(Prompt&& prompt)

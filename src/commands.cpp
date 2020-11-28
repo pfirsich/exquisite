@@ -48,7 +48,7 @@ Command quit()
 Command clearStatusLine()
 {
     return []() { editor::setStatusMessage(""); };
-};
+}
 
 namespace {
     editor::StatusMessage openPromptCallback(std::string_view input)
@@ -72,7 +72,7 @@ Command openFile(std::string_view path)
     } else {
         return [path = std::string(path)]() { editor::setStatusMessage(openPromptCallback(path)); };
     }
-};
+}
 
 namespace {
     editor::StatusMessage saveBuffer()

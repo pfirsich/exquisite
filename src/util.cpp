@@ -122,7 +122,6 @@ Indentation detectIndentation(std::string_view text)
     std::vector<size_t> spacesHist(16, 0);
     size_t tabsCount = 0;
 
-    size_t lastLineOffset = 0;
     size_t lineOffset = getNextLineOffset(text, 0);
     Indentation lastIndent;
     while (lineOffset < text.size()) {
@@ -145,7 +144,6 @@ Indentation detectIndentation(std::string_view text)
         }
         lastIndent = indent;
 
-        lastLineOffset = lineOffset;
         lineOffset = endOffset;
     }
 

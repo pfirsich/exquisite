@@ -133,10 +133,10 @@ void processInput(Buffer& buffer, const Key& key)
 
 void processPromptInput(const Key& key)
 {
-    const auto& prompt = editor::getPrompt();
+    const auto prompt = editor::getPrompt();
     const auto text = prompt->input.getText().getString();
     if (processBufferInput(prompt->input, key)) {
-        // not very clever
+        // not very clever of checking whether the input changed something
         if (text != prompt->input.getText().getString())
             prompt->update();
         return;
