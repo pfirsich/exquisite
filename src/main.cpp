@@ -18,6 +18,7 @@
 #include "terminal.hpp"
 #include "util.hpp"
 
+// Most of this should probably be in shortcuts
 bool processBufferInput(Buffer& buffer, const Key& key)
 {
     if (const auto special = std::get_if<SpecialKey>(&key.key)) {
@@ -95,45 +96,27 @@ void debugKey(const Key& key)
     }
 }
 
+void executeShortcuts(Bitmask<Context> contexts, const Key& key)
+{
+    for (const auto& s : getShortcuts()) {
+        if (s.contexts.test(contexts) && s.key == key) {
+            s.command();
+            break;
+        }
+    }
+}
+
 void processInput(Buffer& buffer, const Key& key)
 {
     if (processBufferInput(buffer, key))
         return;
 
-    if (const auto special = std::get_if<SpecialKey>(&key.key)) {
-        const bool select = key.modifiers.test(Modifiers::Shift);
-        switch (*special) {
-        case SpecialKey::Up:
-            buffer.moveCursorY(-1, select);
-            break;
-        case SpecialKey::Down:
-            buffer.moveCursorY(1, select);
-            break;
-        case SpecialKey::Return:
-            if (!buffer.getReadOnly()) {
-                if (key.modifiers.test(Modifiers::Alt))
-                    buffer.moveCursorEnd(false);
-                buffer.insertNewline();
-            }
-            break;
-        default:
-            break;
-        }
-    } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        for (const auto& shortcut : getShortcuts()) {
-            if (shortcut.key == key) {
-                shortcut.command();
-                break;
-            }
-        }
-    } else {
-        die("Invalid Key variant");
-    }
+    executeShortcuts(Context::Buffer, key);
 }
 
 void processPromptInput(const Key& key)
 {
-    const auto prompt = editor::getPrompt();
+    auto prompt = editor::getPrompt();
     const auto text = prompt->input.getText().getString();
     if (processBufferInput(prompt->input, key)) {
         // not very clever of checking whether the input changed something
@@ -142,31 +125,7 @@ void processPromptInput(const Key& key)
         return;
     }
 
-    if (const auto special = std::get_if<SpecialKey>(&key.key)) {
-        switch (*special) {
-        case SpecialKey::Up:
-            prompt->selectUp();
-            break;
-        case SpecialKey::Down:
-            prompt->selectDown();
-            break;
-        case SpecialKey::Return:
-            editor::confirmPrompt();
-            break;
-        case SpecialKey::Escape:
-            editor::abortPrompt();
-            break;
-        default:
-            break;
-        }
-    } else if (const auto seq = std::get_if<Utf8Sequence>(&key.key)) {
-        if (key == Key(Modifiers::Ctrl, 'c')) {
-            prompt->input.setText("");
-            prompt->update();
-        }
-    } else {
-        die("Invalid Key variant");
-    }
+    executeShortcuts(Context::Prompt, key);
 }
 
 void printUsage()

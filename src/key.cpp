@@ -108,6 +108,20 @@ Key::Key(const std::vector<char>& b, Bitmask<Modifiers> m, char k)
 {
 }
 
+Key::Key(SpecialKey k)
+    : bytes()
+    , modifiers()
+    , key(k)
+{
+}
+
+Key::Key(Bitmask<Modifiers> m, SpecialKey k)
+    : bytes()
+    , modifiers(m)
+    , key(k)
+{
+}
+
 Key::Key(Bitmask<Modifiers> m, char k)
     : bytes()
     , modifiers(m)

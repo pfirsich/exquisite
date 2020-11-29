@@ -364,7 +364,12 @@ Command showShortcutHelp()
     return []() {
         std::string text;
         for (const auto& sc : getShortcuts()) {
-            text.append(fmt::format("{}: {}\n", sc.key.getAsString(), sc.help));
+            const auto context = [&]() {
+                if (sc.contexts == (Context::Buffer | Context::Prompt))
+                    return "";
+                return sc.contexts == Context::Buffer ? "(Buffer) " : "(Prompt) ";
+            }();
+            text.append(fmt::format("{}{}: {}\n", context, sc.key.getAsString(), sc.help));
         }
         editor::openBuffer().setText(text);
         editor::getBuffer().setReadOnly();
@@ -409,5 +414,67 @@ namespace {
 Command setTabWidth()
 {
     return []() { editor::setPrompt(editor::Prompt { "Tab Width> ", setTabWidthCallback }); };
+}
+
+Command moveCursorY(int offset, bool select)
+{
+    return [=]() { editor::getBuffer().moveCursorY(offset, select); };
+}
+
+Command insertNewLine(bool insertAtEol)
+{
+    return [=]() {
+        auto& buffer = editor::getBuffer();
+        if (!buffer.getReadOnly()) {
+            if (insertAtEol)
+                buffer.moveCursorEnd(false);
+            buffer.insertNewline();
+        }
+    };
+}
+
+Command promptSelectUp()
+{
+    return []() {
+        auto prompt = editor::getPrompt();
+        if (prompt)
+            prompt->selectUp();
+    };
+}
+
+Command promptSelectDown()
+{
+    return []() {
+        auto prompt = editor::getPrompt();
+        if (prompt)
+            prompt->selectDown();
+    };
+}
+
+Command promptConfirm()
+{
+    return []() {
+        if (editor::getPrompt())
+            editor::confirmPrompt();
+    };
+}
+
+Command promptAbort()
+{
+    return []() {
+        if (editor::getPrompt())
+            editor::abortPrompt();
+    };
+}
+
+Command promptClear()
+{
+    return []() {
+        auto prompt = editor::getPrompt();
+        if (prompt) {
+            prompt->input.setText("");
+            prompt->update();
+        }
+    };
 }
 }

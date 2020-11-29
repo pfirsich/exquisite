@@ -33,4 +33,11 @@ Command showShortcutHelp();
 Command indentUsingSpaces();
 Command indentUsingTabs();
 Command setTabWidth();
+Command moveCursorY(int offset, bool select);
+Command insertNewLine(bool insertAtEol);
+Command promptSelectUp();
+Command promptSelectDown();
+Command promptConfirm();
+Command promptAbort();
+Command promptClear();
 }

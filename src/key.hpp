@@ -52,7 +52,10 @@ struct Key {
     Key(const std::vector<char>& bytes, char key); // other chars
     Key(const std::vector<char>& bytes, Bitmask<Modifiers> modifiers, char key);
 
-    Key(Bitmask<Modifiers>, char key); // This is just to put into a shortcut
+    // These are just for shortcuts
+    Key(SpecialKey key);
+    Key(Bitmask<Modifiers> modifiers, SpecialKey key);
+    Key(Bitmask<Modifiers>, char key);
 
     bool operator==(const Key& other) const;
     std::string getAsString() const;
