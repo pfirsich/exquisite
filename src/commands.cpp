@@ -77,8 +77,9 @@ Command openFile(std::string_view path)
 namespace {
     editor::StatusMessage saveBuffer()
     {
-        if (!editor::getBuffer().save())
-            return editor::StatusMessage { "Error saving file",
+        const auto res = editor::getBuffer().save();
+        if (!res)
+            return editor::StatusMessage { "Error saving file: " + res.error().message(),
                 editor::StatusMessage::Type::Error };
         else
             return editor::StatusMessage { "Saved" };

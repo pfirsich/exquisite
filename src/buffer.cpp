@@ -181,26 +181,26 @@ bool Buffer::canSave() const
     return lastModTime_ >= fs::last_write_time(path);
 }
 
-bool Buffer::save()
+Result<std::monostate> Buffer::save()
 {
     assert(!path.empty());
 
     if (config.trimTrailingWhitespaceOnSave)
         setTextUndoable(trimTrailingWhitespace(text_.getString()));
 
-    FILE* f = fopen(path.c_str(), "wb");
+    FILE* f = std::fopen(path.c_str(), "wb");
     if (!f) {
         debug("Could not open file");
-        return false;
+        return errnoError();
     }
     const auto data = text_.getString();
-    if (fwrite(data.c_str(), 1, data.size(), f) != data.size()) {
+    if (std::fwrite(data.c_str(), 1, data.size(), f) != data.size()) {
         debug("Could not write to file");
-        return false;
+        return errnoError();
     }
-    if (fclose(f) != 0) {
+    if (std::fclose(f) != 0) {
         debug("Could not close file");
-        return false;
+        return errnoError();
     }
     savedVersionId_ = actions_.getCurrentVersionId();
     lastModTime_ = fs::last_write_time(path);
@@ -208,7 +208,7 @@ bool Buffer::save()
     if (!fileModHandler_.isValid())
         watchFileModifications();
 
-    return true;
+    return success();
 }
 
 bool Buffer::rename(const fs::path& newPath)

@@ -6,6 +6,7 @@
 #include "config.hpp"
 #include "eventhandler.hpp"
 #include "languages.hpp"
+#include "result.hpp"
 #include "textbuffer.hpp"
 #include "util.hpp"
 
@@ -56,7 +57,7 @@ public:
     void watchFileModifications();
     bool reload();
     bool canSave() const;
-    bool save();
+    Result<std::monostate> save();
     bool rename(const fs::path& newPath);
     bool isModified() const;
     std::string getTitle() const;
