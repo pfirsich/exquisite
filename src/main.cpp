@@ -159,7 +159,8 @@ CliOptions parseOpts(int argc, char** argv)
     app.add_option_function<std::string>("-L,--lang", OptParserLanguage { opts },
         "Use this as the extension of the file to determine the language mode\n"
         "Pass empty to force plain text");
-    app.add_option("files", opts.files, "Files to open");
+    app.add_option("files", opts.files,
+        "Files to open. May be a single directory, which will be used as working directory.");
 
     try {
         app.parse(argc, argv);
@@ -190,14 +191,23 @@ int main(int argc, char** argv)
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 
     if (!opts.files.empty()) {
-        for (const auto& file : opts.files) {
-            fs::path path = file;
-            if (!fs::exists(path)) {
-                editor::openBuffer().setPath(path);
-            } else {
-                if (!editor::openBuffer().readFromFile(path)) {
-                    fprintf(stderr, "Could not open file '%s'\n", file.c_str());
-                    exit(1);
+        if (opts.files.size() == 1 && fs::is_directory(opts.files.front())) {
+            const auto res = ::chdir(opts.files.front().c_str());
+            if (res != 0) {
+                fprintf(stderr, "Could not change working directory");
+                exit(1);
+            }
+            editor::openBuffer();
+        } else {
+            for (const auto& file : opts.files) {
+                fs::path path = file;
+                if (!fs::exists(path)) {
+                    editor::openBuffer().setPath(path);
+                } else {
+                    if (!editor::openBuffer().readFromFile(path)) {
+                        fprintf(stderr, "Could not open file '%s'\n", file.c_str());
+                        exit(1);
+                    }
                 }
             }
         }
