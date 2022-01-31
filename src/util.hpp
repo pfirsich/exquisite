@@ -79,3 +79,6 @@ Indentation detectIndentation(std::string_view text);
 std::optional<int> toInt(const std::string& str, int base = 10);
 
 std::string trimTrailingWhitespace(std::string_view str);
+
+std::optional<std::vector<std::string>> walkDirectory(
+    const fs::path& dirPath, size_t maxDepth = 5, size_t maxItems = 2000);

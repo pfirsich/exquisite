@@ -8,6 +8,7 @@
 #include "editor.hpp"
 #include "palette.hpp"
 #include "shortcuts.hpp"
+#include "util.hpp"
 
 using namespace std::literals;
 namespace fs = std::filesystem;
@@ -168,35 +169,15 @@ Command redo()
     };
 }
 
-namespace {
-    std::vector<std::string> walkDirectory()
-    {
-        std::vector<std::string> files;
-        for (auto it = fs::recursive_directory_iterator(".",
-                 fs::directory_options::follow_directory_symlink
-                     | fs::directory_options::skip_permission_denied);
-             it != fs::recursive_directory_iterator(); ++it) {
-            if (it->path().filename().c_str()[0] == '.')
-                it.disable_recursion_pending();
-
-            std::error_code ec;
-            if (it->is_regular_file(ec))
-                files.push_back(it->path().lexically_relative("./"));
-            // If there was an error, we just ignore it
-        }
-        return files;
-    }
-}
-
 Command gotoFile()
 {
     return []() {
-        try {
-            editor::setPrompt(editor::Prompt { "> ", openPromptCallback, walkDirectory() });
-        } catch (const fs::filesystem_error& exc) {
-            editor::setStatusMessage(fmt::format("Error walking directory: {}", exc.what()),
-                editor::StatusMessage::Type::Error);
+        const auto items = walkDirectory(".");
+        if (!items) {
+            editor::setStatusMessage("Error walking directory", editor::StatusMessage::Type::Error);
+            return;
         }
+        editor::setPrompt(editor::Prompt { "> ", openPromptCallback, *items });
     };
 }
 

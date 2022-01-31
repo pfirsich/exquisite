@@ -4,8 +4,14 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <queue>
 
+#include <dirent.h>
+#include <fcntl.h>
+#include <ftw.h>
 #include <unistd.h>
+
+#include "debug.hpp"
 
 void die(std::string_view msg)
 {
@@ -196,4 +202,48 @@ std::string trimTrailingWhitespace(std::string_view str)
         }
     }
     return out;
+}
+
+std::optional<std::vector<std::string>> walkDirectory(
+    const fs::path& dirPath, size_t maxDepth, size_t maxItems)
+{
+    struct Dir {
+        std::string path;
+        size_t depth;
+    };
+
+    std::queue<Dir> dirs;
+    dirs.push(Dir { dirPath.u8string(), 0 });
+
+    std::vector<std::string> files;
+    while (!dirs.empty()) {
+        auto cur = dirs.front();
+        dirs.pop();
+
+        DIR* dir = ::opendir(cur.path.c_str());
+        if (!dir) {
+            return std::nullopt;
+        }
+
+        dirent* ent;
+        while ((ent = ::readdir(dir))) {
+            // Skip ".", ".." and everything hidden
+            const std::string name = ent->d_name;
+            std::string path = cur.path;
+            path.reserve(path.size() + 1 + name.size());
+            path.push_back('/');
+            path.append(name);
+
+            if (ent->d_type == DT_DIR && cur.depth < maxDepth && ent->d_name[0] != '.') {
+                dirs.push(Dir { path, cur.depth + 1 });
+            } else if (ent->d_type == DT_REG) {
+                files.push_back(std::move(path));
+                if (files.size() >= maxItems) {
+                    break;
+                }
+            }
+        }
+        ::closedir(dir);
+    }
+    return files;
 }
