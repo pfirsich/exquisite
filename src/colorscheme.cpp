@@ -4,41 +4,42 @@
 #include <cassert>
 
 #include "control.hpp"
+#include "util.hpp"
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
 ColorScheme colorScheme = {
     // editor
-    { "error.prompt", 1 },
-    { "highlight.currentline", 238 },
-    { "highlight.match.prompt", 243 },
-    { "highlight.selection", 240 },
+    { "error.prompt", 1_uc },
+    { "highlight.currentline", 238_uc },
+    { "highlight.match.prompt", 243_uc },
+    { "highlight.selection", 240_uc },
 
     // code
-    { "identifier", 39 },
-    { "identifier.namespace", 255 },
-    { "identifier.type", 222 },
-    { "identifier.type.primitive", 208 },
-    { "identifier.type.auto", 228 },
-    { "identifier.field", 51 },
-    { "keyword", 204 },
-    { "function", 69 },
-    { "literal.string", 85 },
-    { "literal.string.raw", 85 },
-    { "literal.string.systemlib", 36 },
-    { "literal.char", 83 },
-    { "literal.number", 215 },
-    { "literal.boolean.true", 216 },
-    { "literal.boolean.false", 216 },
-    { "comment", 240 },
-    { "include", 204 },
-    { "bracket.round.open", 1 },
-    { "bracket.round.close", 1 },
-    { "bracket.square.open", 2 },
-    { "bracket.square.close", 2 },
-    { "bracket.curly.open", 3 },
-    { "bracket.curly.close", 3 },
-    { "bracket.angle.open", 4 },
-    { "bracket.angle.close", 4 },
+    { "identifier", 39_uc },
+    { "identifier.namespace", 255_uc },
+    { "identifier.type", 222_uc },
+    { "identifier.type.primitive", 208_uc },
+    { "identifier.type.auto", 228_uc },
+    { "identifier.field", 51_uc },
+    { "keyword", 204_uc },
+    { "function", 69_uc },
+    { "literal.string", 85_uc },
+    { "literal.string.raw", 85_uc },
+    { "literal.string.systemlib", 36_uc },
+    { "literal.char", 83_uc },
+    { "literal.number", 215_uc },
+    { "literal.boolean.true", 216_uc },
+    { "literal.boolean.false", 216_uc },
+    { "comment", 240_uc },
+    { "include", 204_uc },
+    { "bracket.round.open", 1_uc },
+    { "bracket.round.close", 1_uc },
+    { "bracket.square.open", 2_uc },
+    { "bracket.square.close", 2_uc },
+    { "bracket.curly.open", 3_uc },
+    { "bracket.curly.close", 3_uc },
+    { "bracket.angle.open", 4_uc },
+    { "bracket.angle.close", 4_uc },
 };
 
 ColorScheme::ColorScheme(std::initializer_list<std::pair<std::string, Color>> colors)

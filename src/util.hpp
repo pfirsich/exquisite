@@ -82,3 +82,8 @@ std::string trimTrailingWhitespace(std::string_view str);
 
 std::optional<std::vector<std::string>> walkDirectory(
     const fs::path& dirPath, size_t maxDepth = 5, size_t maxItems = 2000);
+
+constexpr uint8_t operator"" _uc(unsigned long long v) noexcept
+{
+    return static_cast<uint8_t>(v);
+}
