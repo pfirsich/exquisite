@@ -76,6 +76,8 @@ auto& getBuffers()
 // THIS THING IS WILD
 Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = false)
 {
+    const auto& config = Config::get();
+
     terminal::bufferWrite(control::sgr::reset);
 
     // It kinda sucks to scroll in a draw function, but only here do we know the actual view size
@@ -194,26 +196,27 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
 
             background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
 
-            if (ch == ' ' && config.renderWhitespace && config.spaceChar) {
+            if (ch == ' ' && config.renderWhitespace && !config.whitespace.space.empty()) {
                 // If whitespace is not rendered, this will fall into "else"
                 faint.set(true);
-                terminal::bufferWrite(*config.spaceChar);
+                terminal::bufferWrite(config.whitespace.space);
 
                 lineCursor++;
                 if (moveCursor)
                     drawCursor.x++;
             } else if (ch == '\t') {
                 faint.set(true);
-                const bool tabChars = config.tabStartChar || config.tabMidChar || config.tabEndChar;
+                const bool tabChars = !config.whitespace.tabStart.empty()
+                    || !config.whitespace.tabMid.empty() || !config.whitespace.tabEnd.empty();
                 assert(buffer.tabWidth > 0);
                 std::string tabStr;
                 tabStr.reserve(buffer.tabWidth);
                 if (config.renderWhitespace && tabChars) {
                     if (buffer.tabWidth >= 2)
-                        tabStr.append(*config.tabStartChar);
+                        tabStr.append(config.whitespace.tabStart);
                     for (size_t i = 0; i < buffer.tabWidth - 2; ++i)
-                        tabStr.append(*config.tabMidChar);
-                    tabStr.append(*config.tabEndChar);
+                        tabStr.append(config.whitespace.tabMid);
+                    tabStr.append(config.whitespace.tabEnd);
                 } else {
                     if (lineCursor + buffer.tabWidth > textWidth)
                         tabStr = std::string(textWidth - lineCursor, ' ');
@@ -262,11 +265,11 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
         background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
 
         // The index will be < size but not \n only if we didn't draw the whole line
-        const bool drawNewline = config.renderWhitespace && config.newlineChar
+        const bool drawNewline = config.renderWhitespace && !config.whitespace.newline.empty()
             && lineCursor < textWidth && (i < text.getSize() && text[i] == '\n');
         if (drawNewline) {
             faint.set(true);
-            terminal::bufferWrite(*config.newlineChar);
+            terminal::bufferWrite(config.whitespace.newline);
         }
 
         invert.set(false);
@@ -337,7 +340,7 @@ void drawStatusBar(const Buffer& buffer, const Vec& terminalSize)
 
 size_t getNumPromptOptions()
 {
-    return std::min(currentPrompt->getNumMatchingOptions(), config.numPromptOptions);
+    return std::min(currentPrompt->getNumMatchingOptions(), Config::get().numPromptOptions);
 }
 
 Vec drawPrompt(const Vec& terminalSize)

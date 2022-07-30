@@ -13,6 +13,35 @@
 
 #include "debug.hpp"
 
+Indentation::Indentation()
+    : Indentation(Config::get().indentUsingSpaces, Config::get().indentWidth)
+{
+}
+
+Indentation::Indentation(bool indentUsingSpaces, size_t indentWith)
+    : type(indentUsingSpaces ? Indentation::Type::Spaces : Indentation::Type::Tabs)
+    , width(indentUsingSpaces ? indentWith : 1)
+{
+}
+
+Indentation::Indentation(Type type, size_t width)
+    : type(type)
+    , width(width)
+{
+}
+
+std::string Indentation::getString() const
+{
+    switch (type) {
+    case Type::Spaces:
+        return std::string(width, ' ');
+    case Type::Tabs:
+        return std::string(width, '\t');
+    default:
+        die("Invalid indentation type");
+    }
+}
+
 void die(std::string_view msg)
 {
     write(STDOUT_FILENO, "\x1b[?1049l", 8);
@@ -157,12 +186,12 @@ Indentation detectIndentation(std::string_view text)
     const auto max = static_cast<size_t>(std::distance(spacesHist.begin(), maxIt));
 
     if (max == 0 && tabsCount == 0)
-        return config.defaultIndentation;
+        return Indentation();
     if (max >= tabsCount) // = because spaces are superior
-        return Indentation { Indentation::Type::Spaces, max };
+        return Indentation(Indentation::Type::Spaces, max);
     else
         // width will be 0, because it's just display
-        return Indentation { Indentation::Type::Tabs, 1 };
+        return Indentation(Indentation::Type::Tabs, 1);
 }
 
 std::optional<int> toInt(const std::string& str, int base)

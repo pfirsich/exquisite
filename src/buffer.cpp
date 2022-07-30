@@ -72,8 +72,9 @@ void Cursor::set(const End& pos)
 ///////////////////////////////////////////// Buffer
 
 Buffer::Buffer()
+    : tabWidth(Config::get().tabWidth)
     // Consider an uninitialized buffer not modified
-    : savedVersionId_(actions_.getCurrentVersionId())
+    , savedVersionId_(actions_.getCurrentVersionId())
 {
 }
 
@@ -185,7 +186,7 @@ Result<std::monostate> Buffer::save()
 {
     assert(!path.empty());
 
-    if (config.trimTrailingWhitespaceOnSave)
+    if (Config::get().trimTrailingWhitespaceOnSave)
         setTextUndoable(trimTrailingWhitespace(text_.getString()));
 
     FILE* f = std::fopen(path.c_str(), "wb");

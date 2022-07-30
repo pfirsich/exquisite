@@ -1,17 +1,13 @@
 #include "config.hpp"
 
+#include <filesystem>
+
 #include "util.hpp"
 
-Config config;
+namespace fs = std::filesystem;
 
-const std::string Indentation::getString() const
+Config& Config::get()
 {
-    switch (type) {
-    case Type::Spaces:
-        return std::string(width, ' ');
-    case Type::Tabs:
-        return std::string(width, '\t');
-    default:
-        die("Invalid indentation type");
-    }
+    static Config config;
+    return config;
 }

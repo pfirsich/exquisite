@@ -44,8 +44,8 @@ class Buffer {
 public:
     std::string name;
     fs::path path;
-    size_t tabWidth = config.defaultTabWidth;
-    Indentation indentation = config.defaultIndentation;
+    size_t tabWidth;
+    Indentation indentation;
 
     Buffer();
 

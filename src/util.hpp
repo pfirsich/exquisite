@@ -16,6 +16,19 @@ namespace fs = std::filesystem;
 // I don't want to type this every time I use it (quite a bit)
 inline constexpr size_t MaxSizeT = std::numeric_limits<size_t>::max();
 
+struct Indentation {
+    enum class Type { Unknown, Spaces, Tabs };
+
+    Indentation();
+    Indentation(bool indentUsingSpace, size_t indentWidth);
+    Indentation(Type type, size_t width);
+
+    Type type = Type::Unknown;
+    size_t width = 0; // unused for Tabs
+
+    std::string getString() const;
+};
+
 struct Vec {
     // for terminal cells 0, 0 is top left
     size_t x = 0;
