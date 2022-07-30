@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <CLI/CLI.hpp>
+#include <clipp.hpp>
 
 #include "commands.hpp"
 #include "debug.hpp"
@@ -128,60 +128,36 @@ void processPromptInput(const Key& key)
     executeShortcuts(Context::Prompt, key);
 }
 
-void printUsage()
-{
-    printf("Usage: `exquisite <file>` or `<cmd> | exquisite`\n");
-}
-
-struct CliOptions {
+struct Args : clipp::ArgsBase {
     bool readOnly = false;
     bool debug = false;
-    const Language* language = &languages::plainText;
     std::vector<std::string> files;
-};
 
-struct OptParserLanguage {
-    CliOptions& opts;
-    void operator()(const std::string& opt)
+    void args()
     {
-        opts.language = languages::getFromExt(opt);
-        if (opts.language == &languages::plainText && !opt.empty())
-            throw CLI::ValidationError { "--lang: Unrecognized extension" };
+        flag(readOnly, "read-only", 'R').help("Start editor in read-only mode");
+        flag(debug, "debug", 'D').help("Write log output to debug.out");
+        positional(files, "files")
+            .optional()
+            .help("Files to open. May be a single directory to be used as the working "
+                  "directory.");
+    }
+
+    std::string description() const override
+    {
+        return "You may also pass text via STDIN.";
     }
 };
-
-CliOptions parseOpts(int argc, char** argv)
-{
-    CLI::App app { "Joel's text editor" };
-    CliOptions opts;
-    app.add_flag("-R,--read-only", opts.readOnly, "Start editor in read-only mode");
-    app.add_flag("-D,--debug", opts.debug, "Write log output to debug.out")->envname("EXQ_DEBUG");
-    app.add_option_function<std::string>("-L,--lang", OptParserLanguage { opts },
-        "Use this as the extension of the file to determine the language mode\n"
-        "Pass empty to force plain text");
-    app.add_option("files", opts.files,
-        "Files to open. May be a single directory, which will be used as working directory.");
-
-    try {
-        app.parse(argc, argv);
-    } catch (const CLI::ParseError& e) {
-        std::exit(app.exit(e));
-    }
-
-    if (std::string_view(argv[0]) == "rexq")
-        opts.readOnly = true;
-
-    return opts;
-}
 
 int main(int argc, char** argv)
 {
-    const auto opts = parseOpts(argc, argv);
+    auto parser = clipp::Parser(argv[0]);
+    const auto args = parser.parse<Args>(argc, argv).value();
 
-    if (opts.readOnly)
+    if (args.readOnly || std::string_view(argv[0]) == "rexq")
         editor::setReadOnly();
 
-    if (opts.debug)
+    if (args.debug)
         logDebugToFile = true;
 
     // HACK: We force the event handler to be instantiated first, so it's destructed after all the
@@ -190,16 +166,16 @@ int main(int argc, char** argv)
 
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 
-    if (!opts.files.empty()) {
-        if (opts.files.size() == 1 && fs::is_directory(opts.files.front())) {
-            const auto res = ::chdir(opts.files.front().c_str());
+    if (!args.files.empty()) {
+        if (args.files.size() == 1 && fs::is_directory(args.files.front())) {
+            const auto res = ::chdir(args.files.front().c_str());
             if (res != 0) {
                 fprintf(stderr, "Could not change working directory");
                 exit(1);
             }
             editor::openBuffer();
         } else {
-            for (const auto& file : opts.files) {
+            for (const auto& file : args.files) {
                 fs::path path = file;
                 if (!fs::exists(path)) {
                     editor::openBuffer().setPath(path);

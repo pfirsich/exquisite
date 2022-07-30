@@ -7,11 +7,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 include(cmake/wall.cmake)
 
-if (EXQUISITE_ENABLE_ASAN)
+if(EXQUISITE_ENABLE_ASAN)
   include(cmake/asan.cmake)
 endif()
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(PLATFORM "linux")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   set(PLATFORM "mac")
@@ -45,8 +45,8 @@ set(SRC
   src/utf8.cpp
   src/util.cpp
 )
-# list(TRANSFORM SRC PREPEND src/) CMake on Ubuntu 18.04 can't do this
 
+# list(TRANSFORM SRC PREPEND src/) CMake on Ubuntu 18.04 can't do this
 add_subdirectory(deps/fmt)
 add_subdirectory(deps/treesitter)
 
@@ -56,5 +56,5 @@ target_include_directories(exquisite PRIVATE src)
 target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)
 target_link_libraries(exquisite fmt)
-target_include_directories(exquisite PRIVATE deps/CLI11/include)
+target_include_directories(exquisite PRIVATE deps/clipp)
 set_wall(exquisite)

@@ -7,6 +7,6 @@
 [submodule "deps/fmt"]
 	path = deps/fmt
 	url = https://github.com/fmtlib/fmt.git
-[submodule "deps/CLI11"]
-	path = deps/CLI11
-	url = https://github.com/CLIUtils/CLI11
+[submodule "deps/clipp"]
+	path = deps/clipp
+	url = https://github.com/pfirsich/clipp

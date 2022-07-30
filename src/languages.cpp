@@ -3,7 +3,7 @@
 using namespace std::literals;
 
 namespace languages {
-Language plainText { "Plain Text", {}, nullptr };
+Language plainText { "Plain Text", { "txt" }, nullptr };
 
 const std::vector<const Language*>& getAll()
 {
