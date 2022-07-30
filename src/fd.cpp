@@ -56,8 +56,9 @@ int Fd::release()
 
 Pipe::Pipe()
 {
-    int fds[2];
-    assert(pipe(fds) != -1);
+    int fds[2] = { -1, -1 };
+    [[maybe_unused]] const auto ret = ::pipe(fds);
+    assert(ret != -1);
     read.reset(fds[0]);
     write.reset(fds[1]);
 }
