@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.0.0)
 
 project(exquisite)
 
+# For conan
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
@@ -47,7 +51,8 @@ set(SRC
 )
 
 # list(TRANSFORM SRC PREPEND src/) CMake on Ubuntu 18.04 can't do this
-add_subdirectory(deps/fmt)
+find_package(fmt)
+
 add_subdirectory(deps/treesitter)
 
 add_executable(exquisite ${SRC})
@@ -55,6 +60,6 @@ target_compile_options(exquisite PRIVATE "-fdiagnostics-color=always")
 target_include_directories(exquisite PRIVATE src)
 target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)
-target_link_libraries(exquisite fmt)
+target_link_libraries(exquisite fmt::fmt)
 target_include_directories(exquisite PRIVATE deps/clipp)
 set_wall(exquisite)
