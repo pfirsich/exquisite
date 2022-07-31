@@ -62,4 +62,7 @@ target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)
 target_link_libraries(exquisite fmt::fmt)
 target_include_directories(exquisite PRIVATE deps/clipp)
+
+# https://github.com/phusion/holy-build-box/blob/master/ESSENTIAL-SYSTEM-LIBRARIES.md
+target_link_libraries(exquisite -static-libstdc++)
 set_wall(exquisite)
