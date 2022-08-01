@@ -46,12 +46,6 @@ bool processBufferInput(Buffer& buffer, const Key& key)
         case SpecialKey::PageDown:
             buffer.moveCursorY(size.y - 3, shift);
             return true;
-        case SpecialKey::Home:
-            buffer.moveCursorHome(shift);
-            return true;
-        case SpecialKey::End:
-            buffer.moveCursorEnd(shift);
-            return true;
         case SpecialKey::Backspace:
             buffer.deleteBackwards();
             return true;

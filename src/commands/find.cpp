@@ -125,7 +125,7 @@ Command find()
     return []() {
         auto prompt = editor::Prompt { "Find> ", confirmCallback, updateCallback };
         prompt.input.setText(getLastFind());
-        prompt.input.moveCursorEnd(true);
+        prompt.input.moveCursorEol(true);
         editor::setPrompt(std::move(prompt));
     };
 }

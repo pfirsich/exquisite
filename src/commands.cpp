@@ -148,7 +148,7 @@ Command renameFile()
     return []() {
         auto prompt = editor::Prompt { "New Path> ", renameFileCallback };
         prompt.input.setText(editor::getBuffer().path.string());
-        prompt.input.moveCursorEnd(true);
+        prompt.input.moveCursorEol(true);
         editor::setPrompt(std::move(prompt));
     };
 }
@@ -409,7 +409,7 @@ Command insertNewLine(bool insertAtEol)
         auto& buffer = editor::getBuffer();
         if (!buffer.getReadOnly()) {
             if (insertAtEol)
-                buffer.moveCursorEnd(false);
+                buffer.moveCursorEol(false);
             buffer.insertNewline();
         }
     };
@@ -457,6 +457,30 @@ Command promptClear()
             prompt->input.setText("");
             prompt->update();
         }
+    };
+}
+
+Command moveCursorBol(bool select)
+{
+    return [=]() { editor::getBuffer().moveCursorBol(select); };
+}
+
+Command moveCursorEol(bool select)
+{
+    return [=]() { editor::getBuffer().moveCursorEol(select); };
+}
+
+Command moveCursorBof(bool select)
+{
+    return [=]() {
+        editor::getBuffer().moveCursorBof(select);
+    };
+}
+
+Command moveCursorEof(bool select)
+{
+    return [=]() {
+        editor::getBuffer().moveCursorEof(select);
     };
 }
 

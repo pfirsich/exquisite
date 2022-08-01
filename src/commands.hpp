@@ -41,4 +41,8 @@ Command promptConfirm();
 Command promptAbort();
 Command promptClear();
 Command duplicateSelection();
+Command moveCursorBol(bool select);
+Command moveCursorEol(bool select);
+Command moveCursorBof(bool select);
+Command moveCursorEof(bool select);
 }

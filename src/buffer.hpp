@@ -87,13 +87,15 @@ public:
     std::string getSelectionString() const;
 
     void select(const Range& range); // can use range.length = 0 to set cursor pos
-    void moveCursorHome(bool select);
-    void moveCursorEnd(bool select);
+    void moveCursorBol(bool select);
+    void moveCursorEol(bool select);
     void moveCursorLeft(bool select);
     void moveCursorRight(bool select);
     void moveCursorWordLeft(bool select);
     void moveCursorWordRight(bool select);
     void moveCursorY(int dy, bool select);
+    void moveCursorBof(bool select);
+    void moveCursorEof(bool select);
 
     size_t getScroll() const;
     void scroll(size_t terminalHeight);

@@ -566,12 +566,12 @@ void Buffer::select(const Range& range)
     cursor_.end = Vec { end - endLine.offset, endLineIndex };
 }
 
-void Buffer::moveCursorHome(bool select)
+void Buffer::moveCursorBol(bool select)
 {
     cursor_.setX(0, select);
 }
 
-void Buffer::moveCursorEnd(bool select)
+void Buffer::moveCursorEol(bool select)
 {
     cursor_.setX(Cursor::EndOfLine, select);
 }
@@ -711,6 +711,18 @@ void Buffer::moveCursorY(int dy, bool select)
         else
             cursor_.setY(0, select);
     }
+}
+
+void Buffer::moveCursorBof(bool select)
+{
+    cursor_.set({ 0, 0 }, select);
+}
+
+void Buffer::moveCursorEof(bool select)
+{
+    const auto lineIndex = text_.getLineCount() - 1;
+    const auto line = text_.getLine(lineIndex);
+    cursor_.set({ line.length - 1, lineIndex }, select);
 }
 
 void Buffer::scroll(size_t terminalHeight)
