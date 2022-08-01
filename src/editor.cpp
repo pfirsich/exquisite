@@ -26,11 +26,11 @@ namespace {
             "EOT"sv, "ENQ"sv, "ACK"sv, "BEL"sv, "BS"sv, "TAB"sv, "LF"sv, "VT"sv, "FF"sv, "CR"sv,
             "SO"sv, "SI"sv, "DLE"sv, "DC1"sv, "DC2"sv, "DC3"sv, "DC4"sv, "NAK"sv, "SYN"sv, "ETB"sv,
             "CAN"sv, "EM"sv, "SUB"sv, "ESC"sv, "FS"sv, "GS"sv, "RS"sv, "US"sv };
-        if (ch > 0 && ch < 32)
+        if (ch >= 0 && ch < 32)
             return lut[ch];
         if (ch == 127)
             return "DEL"sv;
-        die("Unhandled control character");
+        die(fmt::format("Unhandled control character: {}", static_cast<int>(ch)));
     }
 
     template <typename Value = size_t>
