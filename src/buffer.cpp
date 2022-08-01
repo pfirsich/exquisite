@@ -63,10 +63,12 @@ void Cursor::setY(size_t y, bool select)
         end.y = y;
 }
 
-void Cursor::set(const End& pos)
+void Cursor::set(const End& pos, bool select)
 {
     start = pos;
-    end = pos;
+    if (!select) {
+        end = pos;
+    }
 }
 
 ///////////////////////////////////////////// Buffer
@@ -418,6 +420,25 @@ void Buffer::insertNewline()
     const auto lineStr = text_.getString(text_.getLine(cursor_.min().y));
     const auto indentWidth = getIndentWidth(lineStr, tabWidth);
     insert("\n"s + lineStr.substr(0, indentWidth.first));
+}
+
+void Buffer::duplicateSelection()
+{
+    if (readOnly_)
+        return;
+
+    if (cursor_.emptySelection())
+    {
+        const auto line = text_.getLine(cursor_.min().y);
+        const auto lineStr = text_.getString(line);
+        auto cursorAfter = cursor_;
+        cursorAfter.setY(cursor_.min().y + 1);
+        auto action = TextAction { this, line.offset + line.length + 1, "", lineStr + "\n", cursor_, cursorAfter };
+        actions_.perform(std::move(action), false);
+    } else {
+        auto action = TextAction { this, getCursorOffset(cursor_.max()) + 1, "", getSelectionString(), cursor_, cursor_ };
+        actions_.perform(std::move(action), false);
+    }
 }
 
 void Buffer::indent()

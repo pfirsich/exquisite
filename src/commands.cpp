@@ -459,4 +459,10 @@ Command promptClear()
         }
     };
 }
+
+Command duplicateSelection()
+{
+    return []() { editor::getBuffer().duplicateSelection(); };
+}
+
 }

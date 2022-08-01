@@ -40,4 +40,5 @@ Command promptSelectDown();
 Command promptConfirm();
 Command promptAbort();
 Command promptClear();
+Command duplicateSelection();
 }

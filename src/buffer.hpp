@@ -33,9 +33,9 @@ struct Cursor {
     End min() const;
     End max() const;
 
-    void setX(size_t x, bool select);
-    void setY(size_t y, bool select);
-    void set(const End& pos);
+    void setX(size_t x, bool select = false);
+    void setY(size_t y, bool select = false);
+    void set(const End& pos, bool select = false);
 };
 
 // I kinda want to split this class (into an EditBuffer that is just a TextBuffer + Cursor)
@@ -77,6 +77,7 @@ public:
     void insertNewline();
     void indent();
     void dedent();
+    void duplicateSelection();
 
     const Cursor& getCursor() const;
     // This will return the cursorX position clamped to the line length

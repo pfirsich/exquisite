@@ -53,6 +53,7 @@ inline std::vector<Shortcut>& getShortcuts()
         { Context::Buffer, Key(Modifiers::Alt, SpecialKey::Return), commands::insertNewLine(true),
             "Insert new line at end of line" },
 
+        { Context::Buffer, Key(Modifiers::Ctrl, 'k'), commands::duplicateSelection(), "Duplicate selection or current line" },
         { Context::Buffer, Key(Modifiers::Ctrl, 'w'), commands::closeBuffer(), "Close buffer" },
         { Context::Buffer, Key(Modifiers::Ctrl, 'o'), commands::openFile(), "Open file" },
         { Context::Buffer, Key(Modifiers::Ctrl, 's'), commands::saveFile(), "Save file" },
