@@ -427,16 +427,17 @@ void Buffer::duplicateSelection()
     if (readOnly_)
         return;
 
-    if (cursor_.emptySelection())
-    {
+    if (cursor_.emptySelection()) {
         const auto line = text_.getLine(cursor_.min().y);
         const auto lineStr = text_.getString(line);
         auto cursorAfter = cursor_;
         cursorAfter.setY(cursor_.min().y + 1);
-        auto action = TextAction { this, line.offset + line.length + 1, "", lineStr + "\n", cursor_, cursorAfter };
+        auto action = TextAction { this, line.offset + line.length + 1, "", lineStr + "\n", cursor_,
+            cursorAfter };
         actions_.perform(std::move(action), false);
     } else {
-        auto action = TextAction { this, getCursorOffset(cursor_.max()) + 1, "", getSelectionString(), cursor_, cursor_ };
+        auto action = TextAction { this, getCursorOffset(cursor_.max()) + 1, "",
+            getSelectionString(), cursor_, cursor_ };
         actions_.perform(std::move(action), false);
     }
 }

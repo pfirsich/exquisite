@@ -472,16 +472,12 @@ Command moveCursorEol(bool select)
 
 Command moveCursorBof(bool select)
 {
-    return [=]() {
-        editor::getBuffer().moveCursorBof(select);
-    };
+    return [=]() { editor::getBuffer().moveCursorBof(select); };
 }
 
 Command moveCursorEof(bool select)
 {
-    return [=]() {
-        editor::getBuffer().moveCursorEof(select);
-    };
+    return [=]() { editor::getBuffer().moveCursorEof(select); };
 }
 
 Command duplicateSelection()
