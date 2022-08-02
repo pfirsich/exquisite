@@ -15,7 +15,10 @@ inline constexpr auto clearLine = "\x1b[K"sv;
 inline constexpr auto hideCursor = "\x1b[?25l"sv;
 inline constexpr auto showCursor = "\x1b[?25h"sv;
 inline constexpr auto resetCursor = "\x1b[H"sv; // set cursor to 0, 0
+
 std::string moveCursorForward(size_t num);
+
+// position is 0-based, even though terminal cursor position is 1-based
 std::string moveCursor(const Vec& position);
 
 // SGR

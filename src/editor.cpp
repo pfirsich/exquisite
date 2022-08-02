@@ -87,8 +87,9 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
     const auto& text = buffer.getText();
     const auto lineCount = buffer.getText().getLineCount();
     const auto firstLine = buffer.getScroll();
-    const auto lastLine = firstLine + std::min(static_cast<size_t>(size.y), lineCount);
-    assert(firstLine <= lineCount - 1);
+    const auto lastLine = std::min(firstLine + static_cast<size_t>(size.y) - 1, lineCount - 1);
+    assert(firstLine < lineCount);
+    assert(lastLine < lineCount);
 
     LazyTerminalState<bool> faint(
         { std::string(control::sgr::resetIntensity), std::string(control::sgr::faint) });
@@ -134,7 +135,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                                          : std::vector<Highlight> {};
     size_t highlightIdx = 0;
 
-    for (size_t l = firstLine; l < lastLine; ++l) {
+    for (size_t l = firstLine; l <= lastLine; ++l) {
         const auto line = text.getLine(l);
 
         const bool cursorInLine = l == cursor.y;
@@ -290,7 +291,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
     terminal::bufferWrite(control::sgr::resetBgColor);
     terminal::bufferWrite(control::sgr::resetFgColor);
 
-    for (size_t y = lastLine + 1; y < size.y + 1; ++y) {
+    for (size_t y = lastLine + 1; y < size.y; ++y) {
         if (pos.x > 0)
             terminal::bufferWrite(control::moveCursorForward(pos.x));
         terminal::bufferWrite("~");
@@ -300,7 +301,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
             terminal::bufferWrite(str);
         }
         terminal::bufferWrite(control::clearLine);
-        if (y < size.y)
+        if (y < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
 
@@ -437,10 +438,12 @@ void redraw()
         }
         return 0ul;
     }();
+    const auto bufferPos = Vec { 0, 0 };
     const auto bufferSize = Vec { size.x, size.y - 2 - promptHeight };
-    auto drawCursor = drawBuffer(getBuffer(), Vec { 0, 0 }, bufferSize);
+    auto drawCursor = drawBuffer(getBuffer(), bufferPos, bufferSize);
     terminal::bufferWrite("\r\n");
 
+    terminal::write(control::moveCursor(Vec { bufferPos.x, bufferPos.y + bufferSize.y }));
     drawStatusBar(getBuffer(), size);
 
     if (currentPrompt) {
