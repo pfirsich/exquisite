@@ -32,6 +32,7 @@ inline std::vector<Shortcut>& getShortcuts()
         { all, Key(Modifiers::Ctrl, '.'), commands::clearStatusLine(), "Clear status line" },
         { all, Key(Modifiers::Ctrl, 'z'), commands::undo(), "Undo" },
         { all, Key(Modifiers::Ctrl | Modifiers::Alt, 'z'), commands::redo(), "Redo" },
+        { all, Key(Modifiers::Ctrl, 'x'), commands::cut(), "Cut" },
         { all, Key(Modifiers::Ctrl, 'c'), commands::copy(), "Copy" },
         { all, Key(Modifiers::Ctrl, 'v'), commands::paste(), "Paste" },
         { all, Key(Modifiers::Ctrl, 'p'), commands::gotoFile(), "Goto file" },

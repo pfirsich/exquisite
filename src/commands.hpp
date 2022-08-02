@@ -18,6 +18,7 @@ Command undo();
 Command redo();
 Command gotoFile();
 Command showCommandPalette();
+Command cut();
 Command copy();
 Command paste();
 Command find();

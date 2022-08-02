@@ -205,6 +205,20 @@ Command showCommandPalette()
     };
 }
 
+Command cut()
+{
+    return []() {
+        const auto selection = editor::getBuffer().getSelectionString();
+        if (!selection.empty()) {
+            if (!setClipboardText(selection)) {
+                editor::setStatusMessage(
+                    "Could not set clipboard", editor::StatusMessage::Type::Error);
+            }
+            editor::getBuffer().deleteSelection();
+        }
+    };
+}
+
 Command copy()
 {
     return []() {
