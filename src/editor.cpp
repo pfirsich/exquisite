@@ -130,7 +130,8 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
     buffer.updateHighlighting();
     const auto highlighting = buffer.getHighlighting();
     const auto startOffset = text.getLine(firstLine).offset;
-    const auto endOffset = text.getLine(std::min(text.getLineCount() - 1, lastLine)).offset;
+    const auto lastHighlightLine = text.getLine(std::min(text.getLineCount() - 1, lastLine));
+    const auto endOffset = lastHighlightLine.offset + lastHighlightLine.length;
     const auto highlights = highlighting ? highlighting->getHighlights(startOffset, endOffset)
                                          : std::vector<Highlight> {};
     size_t highlightIdx = 0;
