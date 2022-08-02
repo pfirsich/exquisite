@@ -17,6 +17,7 @@
 #include "shortcuts.hpp"
 #include "terminal.hpp"
 #include "util.hpp"
+#include "config.hpp"
 
 // Most of this should probably be in shortcuts
 bool processBufferInput(Buffer& buffer, const Key& key)
@@ -157,6 +158,8 @@ int main(int argc, char** argv)
     // HACK: We force the event handler to be instantiated first, so it's destructed after all the
     // buffers. This is to avoid a segfault on exit.
     getEventHandler();
+
+    loadConfig();
 
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
 

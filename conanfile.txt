@@ -1,5 +1,7 @@
 [requires]
 fmt/8.1.1
+lua/5.4.4
+sol2/3.3.0
 
 [generators]
 cmake_find_package

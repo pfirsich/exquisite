@@ -52,6 +52,8 @@ set(SRC
 
 # list(TRANSFORM SRC PREPEND src/) CMake on Ubuntu 18.04 can't do this
 find_package(fmt)
+find_package(sol2)
+find_package(lua)
 
 add_subdirectory(deps/treesitter)
 
@@ -61,6 +63,9 @@ target_include_directories(exquisite PRIVATE src)
 target_link_libraries(exquisite stdc++fs) # Ubuntu 18.04 needs this
 target_link_libraries(exquisite treesitter)
 target_link_libraries(exquisite fmt::fmt)
+target_link_libraries(exquisite lua::lua)
+target_compile_definitions(exquisite PRIVATE -DSOL_ALL_SAFETIES_ON=1)
+target_link_libraries(exquisite sol2::sol2)
 target_include_directories(exquisite PRIVATE deps/clipp)
 
 # https://github.com/phusion/holy-build-box/blob/master/ESSENTIAL-SYSTEM-LIBRARIES.md
