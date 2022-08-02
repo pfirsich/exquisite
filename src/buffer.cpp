@@ -728,10 +728,15 @@ void Buffer::moveCursorEof(bool select)
 
 void Buffer::scroll(size_t terminalHeight)
 {
-    if (cursor_.start.y < scroll_)
+    if (cursor_.start.y < scroll_) {
         scroll_ = cursor_.start.y;
-    else if (cursor_.start.y - scroll_ >= terminalHeight)
+    } else if (cursor_.start.y - scroll_ >= terminalHeight) {
         scroll_ = std::min(text_.getLineCount() - 1, cursor_.start.y - terminalHeight + 1);
+    }
+
+    if (text_.getLineCount() >= terminalHeight) {
+        scroll_ = std::min(scroll_, text_.getLineCount() - terminalHeight);
+    }
 }
 
 bool Buffer::undo()
