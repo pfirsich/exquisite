@@ -317,6 +317,8 @@ void drawStatusBar(const Buffer& buffer, const Vec& terminalSize)
 {
     static const auto pid = getpid();
 
+    terminal::bufferWrite(std::string(control::sgr::bgColorPrefix) + colorScheme["background"]);
+
     assert(buffer.indentation.type == Indentation::Type::Spaces
         || buffer.indentation.type == Indentation::Type::Tabs);
     const auto indent = buffer.indentation.type == Indentation::Type::Spaces
@@ -351,19 +353,19 @@ size_t getNumPromptOptions()
 
 Vec drawPrompt(const Vec& terminalSize)
 {
+    enum class Background { Normal = 0, CurrentLine, Highlight };
+    LazyTerminalState<Background> background({
+        std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
+        std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
+        std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.match.prompt"],
+    });
+
     const auto numOptions = getNumPromptOptions();
     const auto& options = currentPrompt->getOptions();
     if (numOptions > 0) {
         const auto selected = currentPrompt->getSelectedOption();
         const auto skip = std::min(currentPrompt->getNumMatchingOptions() - numOptions,
             selected >= numOptions / 2 ? selected - (numOptions - 1) / 2 : 0);
-
-        enum class Background { Normal = 0, CurrentLine, Highlight };
-        LazyTerminalState<Background> background({
-            std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
-            std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
-            std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.match.prompt"],
-        });
 
         auto skipToNextMatching = [](const std::vector<Prompt::Option>& opts, size_t& index) {
             index++;
@@ -404,7 +406,7 @@ Vec drawPrompt(const Vec& terminalSize)
 
             skipToNextMatching(options, index);
         }
-        terminal::bufferWrite(std::string(control::sgr::bgColorPrefix) + colorScheme["background"]);
+        background.set(Background::Normal);
     } else if (!options.empty()) {
         terminal::bufferWrite("No matches");
         terminal::bufferWrite(control::clearLine);
