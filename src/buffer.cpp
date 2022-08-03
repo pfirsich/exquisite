@@ -597,7 +597,16 @@ void Buffer::select(const Range& range)
 
 void Buffer::moveCursorBol(bool select)
 {
-    cursor_.setX(0, select);
+    const auto line = text_.getLine(cursor_.start.y);
+    size_t firstNonWhitespace = 0;
+    while (firstNonWhitespace < line.length && std::isspace(text_[line.offset + firstNonWhitespace])) {
+        firstNonWhitespace++;
+    }
+    if (cursor_.start.x == firstNonWhitespace) {
+        cursor_.setX(0, select);
+    } else {
+        cursor_.setX(firstNonWhitespace, select);
+    }
 }
 
 void Buffer::moveCursorEol(bool select)
