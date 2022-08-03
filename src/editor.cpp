@@ -177,14 +177,18 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
             if (!highlights.empty()) {
                 // We know: highlights[n].start <= highlights[n+1].start
                 // Just use the last highlight for an index
-                while (
-                    highlightIdx + 1 < highlights.size() && i >= highlights[highlightIdx + 1].start)
+                while (highlightIdx + 1 < highlights.size()
+                    && i >= highlights[highlightIdx + 1].start) {
                     highlightIdx++;
+                }
 
-                if (i == highlights[highlightIdx].start) {
+                const auto& curHighlight = highlights[highlightIdx];
+                const auto inHighlight = i >= curHighlight.start && i < curHighlight.end;
+
+                if (i == curHighlight.start || (inHighlight && i == line.offset)) {
                     terminal::bufferWrite(control::sgr::fgColorPrefix);
-                    terminal::bufferWrite(highlighting->getColor(highlights[highlightIdx].id));
-                } else if (i == highlights[highlightIdx].end) {
+                    terminal::bufferWrite(highlighting->getColor(curHighlight.id));
+                } else if (i == curHighlight.end) {
                     terminal::bufferWrite(control::sgr::resetFgColor);
                 }
             }
