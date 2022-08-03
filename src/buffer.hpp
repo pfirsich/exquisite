@@ -30,6 +30,8 @@ struct Cursor {
 
     bool emptySelection() const;
     bool isOrdered() const;
+    End& min();
+    End& max();
     End min() const;
     End max() const;
 
@@ -78,6 +80,7 @@ public:
     void indent();
     void dedent();
     void duplicateSelection();
+    void deleteSelectedLines();
 
     const Cursor& getCursor() const;
     // This will return the cursorX position clamped to the line length

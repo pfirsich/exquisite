@@ -35,18 +35,24 @@ bool Cursor::isOrdered() const
     return start.x < end.x;
 }
 
+Cursor::End& Cursor::min()
+{
+    return isOrdered() ? start : end;
+}
+
+Cursor::End& Cursor::max()
+{
+    return isOrdered() ? end : start;
+}
+
 Cursor::End Cursor::min() const
 {
-    if (isOrdered())
-        return start;
-    return end;
+    return isOrdered() ? start : end;
 }
 
 Cursor::End Cursor::max() const
 {
-    if (isOrdered())
-        return end;
-    return start;
+    return isOrdered() ? end : start;
 }
 
 void Cursor::setX(size_t x, bool select)
@@ -440,6 +446,28 @@ void Buffer::duplicateSelection()
             getSelectionString(), cursor_, cursor_ };
         actions_.perform(std::move(action), false);
     }
+}
+
+void Buffer::deleteSelectedLines()
+{
+    if (readOnly_)
+        return;
+
+    const auto cursorBefore = cursor_;
+    if (cursor_.max().y < text_.getLineCount() - 1) {
+        cursor_.min().x = 0;
+        cursor_.max().x = 0;
+        cursor_.max().y += 1;
+    } else {
+        debug("last line");
+        if (cursor_.min().y > 0) {
+            cursor_.min().x = text_.getLine(cursor_.min().y).length;
+            cursor_.min().y -= 1;
+        }
+        cursor_.max().x = text_.getLine(cursor_.max().y).length;
+    }
+    deleteSelection();
+    actions_.getTop().cursorBefore = cursorBefore;
 }
 
 void Buffer::indent()

@@ -499,4 +499,9 @@ Command duplicateSelection()
     return []() { editor::getBuffer().duplicateSelection(); };
 }
 
+Command deleteSelectedLines()
+{
+    return []() { editor::getBuffer().deleteSelectedLines(); };
+}
+
 }

@@ -42,6 +42,7 @@ Command promptConfirm();
 Command promptAbort();
 Command promptClear();
 Command duplicateSelection();
+Command deleteSelectedLines();
 Command moveCursorBol(bool select);
 Command moveCursorEol(bool select);
 Command moveCursorBof(bool select);
