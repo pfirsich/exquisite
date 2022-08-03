@@ -294,6 +294,8 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
+
+    background.set(Background::Normal);
     terminal::bufferWrite(control::sgr::resetFgColor);
 
     for (size_t y = lastLine + 1; y < size.y; ++y) {
