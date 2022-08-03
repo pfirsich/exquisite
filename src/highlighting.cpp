@@ -122,8 +122,10 @@ std::vector<Highlight> Highlighting::getHighlights(size_t start, size_t end) con
         }
     }
 
-    for (size_t i = 0; i < highlights.size() - 1; ++i) {
-        assert(highlights[i].start <= highlights[i + 1].start);
+    if (highlights.size() > 1) {
+        for (size_t i = 0; i < highlights.size() - 1; ++i) {
+            assert(highlights[i].start <= highlights[i + 1].start);
+        }
     }
 
     return highlights;
