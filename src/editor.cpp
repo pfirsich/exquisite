@@ -301,7 +301,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
             terminal::bufferWrite(control::moveCursorForward(pos.x));
         terminal::bufferWrite("~");
         if (text.getSize() == 0 && y == size.y / 2) {
-            const auto str = "Scratch Buffer"sv;
+            const auto str = "Empty File"sv;
             terminal::bufferWrite(std::string(size.x / 2 - str.size() / 2, ' '));
             terminal::bufferWrite(str);
         }
