@@ -10,6 +10,7 @@
 ColorScheme colorScheme = {
     // editor
     { "error.prompt", 1_uc },
+    { "background", RgbColor { 41, 42, 43 } },
     { "highlight.currentline", 238_uc },
     { "highlight.match.prompt", 243_uc },
     { "highlight.selection", 240_uc },

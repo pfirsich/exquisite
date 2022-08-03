@@ -40,11 +40,12 @@ namespace {
             : values_(values)
             , current_(initial)
         {
+            set(current_, true);
         }
 
-        void set(Value v)
+        void set(Value v, bool override = false)
         {
-            if (current_ != v)
+            if (current_ != v || override)
                 terminal::bufferWrite(values_[static_cast<size_t>(v)]);
             current_ = v;
         }
@@ -122,7 +123,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
 
     enum class Background { Normal = 0, CurrentLine, Highlight };
     LazyTerminalState<Background> background({
-        std::string(control::sgr::resetBgColor),
+        std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.selection"],
     });
@@ -289,7 +290,6 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
-    terminal::bufferWrite(control::sgr::resetBgColor);
     terminal::bufferWrite(control::sgr::resetFgColor);
 
     for (size_t y = lastLine + 1; y < size.y; ++y) {
@@ -356,7 +356,7 @@ Vec drawPrompt(const Vec& terminalSize)
 
         enum class Background { Normal = 0, CurrentLine, Highlight };
         LazyTerminalState<Background> background({
-            std::string(control::sgr::resetBgColor),
+            std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
             std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
             std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.match.prompt"],
         });
@@ -400,7 +400,7 @@ Vec drawPrompt(const Vec& terminalSize)
 
             skipToNextMatching(options, index);
         }
-        terminal::bufferWrite(control::sgr::resetBgColor);
+        terminal::bufferWrite(std::string(control::sgr::bgColorPrefix) + colorScheme["background"]);
     } else if (!options.empty()) {
         terminal::bufferWrite("No matches");
         terminal::bufferWrite(control::clearLine);
@@ -452,7 +452,7 @@ void redraw()
     } else {
         switch (statusMessage.type) {
         case StatusMessage::Type::Normal:
-            terminal::bufferWrite(control::sgr::reset);
+            terminal::bufferWrite(control::sgr::resetFgColor);
             break;
         case StatusMessage::Type::Error:
             terminal::bufferWrite(control::sgr::fgColorPrefix);
