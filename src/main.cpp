@@ -11,13 +11,13 @@
 #include <clipp.hpp>
 
 #include "commands.hpp"
+#include "config.hpp"
 #include "debug.hpp"
 #include "editor.hpp"
 #include "eventhandler.hpp"
 #include "shortcuts.hpp"
 #include "terminal.hpp"
 #include "util.hpp"
-#include "config.hpp"
 
 // Most of this should probably be in shortcuts
 bool processBufferInput(Buffer& buffer, const Key& key)
@@ -213,7 +213,7 @@ int main(int argc, char** argv)
         debug("read stdin");
         const auto key = terminal::readKey();
         if (key) {
-            debugKey(*key);
+            // debugKey(*key);
             if (editor::getPrompt())
                 processPromptInput(*key);
             else
