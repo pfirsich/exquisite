@@ -21,6 +21,10 @@ std::string moveCursorForward(size_t num);
 // position is 0-based, even though terminal cursor position is 1-based
 std::string moveCursor(const Vec& position);
 
+// https://vt100.net/docs/vt510-rm/DECSCUSR.html
+// 5 is blinking horizontal line, 6 is non-blinking horizontal line
+std::string setCursorStyle(int style);
+
 // SGR
 namespace sgr {
     inline constexpr auto reset = "\x1b[0m"sv;

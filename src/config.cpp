@@ -189,6 +189,7 @@ void loadConfig()
     lconfig["tabWidth"] = config.tabWidth;
     lconfig["indentUsingSpaces"] = config.indentUsingSpaces;
     lconfig["indentWidth"] = config.indentWidth;
+    lconfig["cursor"] = config.cursor;
 
     lconfig["renderWhitespace"] = config.renderWhitespace;
     auto ws = lconfig.create("whitespace");
@@ -214,6 +215,7 @@ void loadConfig()
     config.tabWidth = lconfig["tabWidth"];
     config.indentUsingSpaces = lconfig["indentUsingSpaces"];
     config.indentWidth = lconfig["indentWidth"];
+    config.cursor = lconfig["cursor"];
 
     config.whitespace.space = ws["space"];
     config.whitespace.newline = ws["newline"];

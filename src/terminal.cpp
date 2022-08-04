@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "control.hpp"
 #include "debug.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
@@ -34,21 +35,29 @@ void switchFromAlternateScreen()
     terminal::write("\x1b[?1049l");
 }
 
+void setCursorStyle(int style)
+{
+    terminal::write(control::setCursorStyle(style));
+}
+
 void deinit()
 {
     switchFromAlternateScreen();
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &termiosBackup))
         die("tcsetattr");
+    setCursorStyle(0);
 }
 }
 
 namespace terminal {
 void init()
 {
-    switchToAlternateScreen();
-    if (tcgetattr(STDIN_FILENO, &termiosBackup))
-        die("tcgetattr");
     atexit(deinit);
+    switchToAlternateScreen();
+    setCursorStyle(Config::get().cursor);
+    if (tcgetattr(STDIN_FILENO, &termiosBackup)) {
+        die("tcgetattr");
+    }
 
     termios ios = termiosBackup;
 

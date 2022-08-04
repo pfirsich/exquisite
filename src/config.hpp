@@ -10,6 +10,7 @@ struct Config {
     size_t tabWidth = 8;
     bool indentUsingSpaces = true;
     size_t indentWidth = 4;
+    uint8_t cursor = 5;
 
     bool renderWhitespace = true;
     struct Whitespace {

@@ -15,6 +15,11 @@ std::string moveCursor(const Vec& pos)
     return fmt::format("\x1b[{};{}H", pos.y + 1, pos.x + 1);
 }
 
+std::string setCursorStyle(int style)
+{
+    return fmt::format("\x1b[{} q", style);
+}
+
 namespace sgr {
     std::string color(ColorIndex idx)
     {
