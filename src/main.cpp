@@ -159,9 +159,9 @@ int main(int argc, char** argv)
     // buffers. This is to avoid a segfault on exit.
     getEventHandler();
 
-    loadConfig();
-
     debug(">>>>>>>>>>>>>>>>>>>>>> INIT <<<<<<<<<<<<<<<<<<<<<<");
+
+    loadConfig();
 
     if (!args.files.empty()) {
         if (args.files.size() == 1 && fs::is_directory(args.files.front())) {

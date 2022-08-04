@@ -2,24 +2,28 @@
 
 #include <filesystem>
 
-#include <unistd.h>
-#include <sys/types.h>
 #include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <sol/sol.hpp>
 
+#include "debug.hpp"
+#include "editor.hpp"
+#include "process.hpp"
 #include "util.hpp"
 
 namespace fs = std::filesystem;
 
-Config& Config::get()
+namespace {
+sol::state& getLuaState()
 {
-    static Config config;
-    return config;
+    static sol::state lua;
+    return lua;
 }
 
-namespace {
-fs::path getHomeDirectory() {
+fs::path getHomeDirectory()
+{
     const auto home = ::getenv("HOME");
     if (home) {
         return fs::path(home);
@@ -32,7 +36,8 @@ fs::path getHomeDirectory() {
     return fs::path(pw->pw_dir);
 }
 
-fs::path getConfigHomeDirectory() {
+fs::path getConfigHomeDirectory()
+{
     const auto configHome = ::getenv("XDG_CONFIG_HOME");
     if (configHome) {
         return fs::path(configHome);
@@ -40,39 +45,111 @@ fs::path getConfigHomeDirectory() {
     return getHomeDirectory() / ".config";
 }
 
-fs::path getConfigDirectory() {
+fs::path getConfigDirectory()
+{
     return getConfigHomeDirectory() / "exquisite";
 }
+
+namespace api {
+    void bind(std::string_view /*input*/, std::string_view /*commandName*/,
+        std::optional<sol::table> /*args*/)
+    {
+    }
+
+    void hook(std::string_view hookName, sol::function hookFunction)
+    {
+        auto hooks = getLuaState()["exq"]["_hooks"][hookName].get<sol::table>();
+        hooks.add(hookFunction);
+    }
+
+    sol::object run(std::vector<std::string> args, sol::table kwargs)
+    {
+        debug("run inside");
+        std::string stdin;
+        if (kwargs["stdin"].valid()) {
+            stdin = kwargs["stdin"];
+        }
+        const auto res = Process::run(args, stdin);
+        if (!res) {
+            debug("!res");
+            return sol::lua_nil;
+        }
+        debug("result");
+        return getLuaState().create_table_with(
+            "status", res->status, "stdout", res->out, "stderr", res->err);
+    }
+
+    std::string getBufferText()
+    {
+        return editor::getBuffer().getText().getString();
+    }
+
+    void replaceBufferText(std::string_view text, std::optional<bool> undoable)
+    {
+        if (undoable.value_or(true)) {
+            editor::getBuffer().setTextUndoable(std::string(text));
+        } else {
+            editor::getBuffer().setText(text);
+        }
+    }
+}
+}
+
+Config& Config::get()
+{
+    static Config config;
+    return config;
+}
+
+void executeHook(std::string_view hookName)
+{
+    auto hooks = getLuaState()["exq"]["_hooks"][hookName].get<sol::table>();
+    for (size_t i = 1; i <= hooks.size(); ++i) {
+        const auto res = hooks[i]();
+        if (!res.valid()) {
+            debug("Error in hook: {}", static_cast<sol::error>(res).what());
+        }
+    }
 }
 
 void loadConfig()
 {
-    const auto configFilePath = getConfigDirectory() / "config.lua";
+    const auto configDirectory = getConfigDirectory();
+    const auto configFilePath = configDirectory / "config.lua";
     const fs::path localConfigPath = "exquisite.lua";
     if (!fs::exists(configFilePath) && !fs::exists(localConfigPath)) {
         return;
     }
 
-    sol::state lua;
-    lua.open_libraries(sol::lib::base, sol::lib::package);
+    auto& lua = getLuaState();
+    lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::coroutine, sol::lib::string,
+        sol::lib::os, sol::lib::math, sol::lib::table, sol::lib::io);
 
-    // exq.colorschemes[name] = { scope = color(8-bit num or hex) }
-    // exq.config.colorscheme = "panda"
-    // exq.bind("ctrl+s", function() end)
-    // exq.bind("ctrl+right", exq.moveWordForward, false)
-    // exq.bind("ctrl+shift+right", exq.moveWordForward, true)
-    // exq.showPalette(options(list of strings), initial_input (string), function(input) end (handle))
-    // exq.openBuffer(filename)
-    // exq.replaceBuffer(string) # clang-format
-    // exq.registerCommand("
-    // exq.run({args}, {kwargs}) # stdin = buffer, stdout = buffer
-    //    usage: stdout async into buffer (ninja, cmake)
-    //           sync, buffer as stdin to command (clang-format)
-    //           sync, no stdin, stdout to var (fdfind)
-
-    auto& config = Config::get();
+    lua["package"]["path"]
+        = (configDirectory / "?.lua;").u8string() + lua["package"]["path"].get<std::string>();
 
     auto exq = lua.create_named_table("exq");
+
+    // internal
+    // I just store the hooks in the lua state, so I don't have to worry about ownership
+    auto hooks = exq.create_named("_hooks");
+    hooks["init"] = lua.create_table();
+    hooks["presave"] = lua.create_table();
+    hooks["exit"] = lua.create_table();
+
+    // api
+    exq["bind"] = api::bind;
+    exq["hook"] = api::hook;
+    exq["debug"] = [](std::string_view str) { debug(str); };
+
+    exq["run"] = api::run;
+    // exq["getCursor"] = api::getCursor;
+    exq["getBufferText"] = api::getBufferText;
+    exq["replaceBufferText"] = api::replaceBufferText;
+
+    // config
+    auto& config = Config::get();
+
     auto lconfig = exq.create_named("config");
 
     lconfig["tabWidth"] = config.tabWidth;
@@ -108,10 +185,12 @@ void loadConfig()
     config.whitespace.newline = ws["newline"];
     config.whitespace.tabStart = ws["tabStart"];
     config.whitespace.tabMid = ws["tabMid"];
-    config.whitespace.tabEnd = ws["tabEnd"];;
+    config.whitespace.tabEnd = ws["tabEnd"];
 
     config.trimTrailingWhitespaceOnSave = lconfig["trimTrailingWhitespaceOnSave"];
     config.showLineNumbers = lconfig["showLineNumbers"];
     config.highlightCurrentLine = lconfig["highlightCurrentLine"];
     config.numPromptOptions = lconfig["numPromptOptions"];
+
+    executeHook("init");
 }

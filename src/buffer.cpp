@@ -197,6 +197,8 @@ Result<std::monostate> Buffer::save()
     if (Config::get().trimTrailingWhitespaceOnSave)
         setTextUndoable(trimTrailingWhitespace(text_.getString()));
 
+    executeHook("presave");
+
     FILE* f = std::fopen(path.c_str(), "wb");
     if (!f) {
         debug("Could not open file");

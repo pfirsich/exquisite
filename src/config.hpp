@@ -30,4 +30,5 @@ struct Config {
     void load();
 };
 
+void executeHook(std::string_view hookName);
 void loadConfig();
