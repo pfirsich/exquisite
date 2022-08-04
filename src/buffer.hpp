@@ -83,9 +83,11 @@ public:
     void deleteSelectedLines();
 
     const Cursor& getCursor() const;
+    Cursor& getCursor();
     // This will return the cursorX position clamped to the line length
     size_t getCursorX(const Cursor::End& cursorEnd) const;
     size_t getCursorOffset(const Cursor::End& cursorEnd) const;
+    Cursor::End getCursorEndFromOffset(size_t offset) const;
     Range getSelection() const;
     std::string getSelectionString() const;
 

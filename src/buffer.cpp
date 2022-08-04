@@ -96,6 +96,11 @@ const Cursor& Buffer::getCursor() const
     return cursor_;
 }
 
+Cursor& Buffer::getCursor()
+{
+    return cursor_;
+}
+
 size_t Buffer::getScroll() const
 {
     return scroll_;
@@ -571,6 +576,12 @@ size_t Buffer::getCursorOffset(const Cursor::End& cursorEnd) const
     return text_.getLine(cursorEnd.y).offset + getCursorX(cursorEnd);
 }
 
+Cursor::End Buffer::getCursorEndFromOffset(size_t offset) const
+{
+    const auto lineIdx = text_.getLineIndex(offset);
+    return Cursor::End { offset - text_.getLine(lineIdx).offset, lineIdx };
+}
+
 Range Buffer::getSelection() const
 {
     auto startOffset = getCursorOffset(cursor_.start);
@@ -587,21 +598,16 @@ std::string Buffer::getSelectionString() const
 
 void Buffer::select(const Range& range)
 {
-    const auto end = range.offset + range.length;
-    const auto startLineIndex = text_.getLineIndex(range.offset);
-    const auto startLine = text_.getLine(startLineIndex);
-    const auto endLineIndex = text_.getLineIndex(end);
-    const auto endLine = text_.getLine(text_.getLineIndex(end));
-    assert(range.offset >= startLine.offset);
-    cursor_.start = Vec { range.offset - startLine.offset, startLineIndex };
-    cursor_.end = Vec { end - endLine.offset, endLineIndex };
+    cursor_.start = getCursorEndFromOffset(range.offset);
+    cursor_.end = getCursorEndFromOffset(range.offset + range.length);
 }
 
 void Buffer::moveCursorBol(bool select)
 {
     const auto line = text_.getLine(cursor_.start.y);
     size_t firstNonWhitespace = 0;
-    while (firstNonWhitespace < line.length && std::isspace(text_[line.offset + firstNonWhitespace])) {
+    while (
+        firstNonWhitespace < line.length && std::isspace(text_[line.offset + firstNonWhitespace])) {
         firstNonWhitespace++;
     }
     if (cursor_.start.x == firstNonWhitespace) {

@@ -79,6 +79,33 @@ namespace api {
             "status", res->status, "stdout", res->out, "stderr", res->err);
     }
 
+    sol::table getCursor()
+    {
+        auto& lua = getLuaState();
+        const auto& buffer = editor::getBuffer();
+        const auto& cursor = buffer.getCursor();
+        return lua.create_table_with("start",
+            lua.create_table_with("x", static_cast<int>(cursor.start.x), "y", static_cast<int>(cursor.start.y), "offset",
+                static_cast<int>(buffer.getCursorOffset(cursor.start))),
+            "end",
+            lua.create_table_with("x", static_cast<int>(cursor.end.x), "y", static_cast<int>(cursor.end.y), "offset",
+                static_cast<int>(buffer.getCursorOffset(cursor.end))));
+    }
+
+    void setCursor(sol::table start, sol::table end)
+    {
+        auto& buffer = editor::getBuffer();
+        auto makeEnd = [&buffer](sol::table cend) -> Cursor::End {
+            if (cend["offset"].valid()) {
+                return buffer.getCursorEndFromOffset(cend["offset"]);
+            } else {
+                return Cursor::End { cend["x"], cend["y"] };
+            }
+        };
+        buffer.getCursor().start = makeEnd(start);
+        buffer.getCursor().end = makeEnd(end);
+    }
+
     std::string getBufferText()
     {
         return editor::getBuffer().getText().getString();
@@ -145,10 +172,11 @@ void loadConfig()
     // api
     exq["bind"] = api::bind;
     exq["hook"] = api::hook;
-    exq["debug"] = [](std::string_view str) { debug(str); };
+    exq["debug"] = [](std::string_view str) { debug("{}", str); };
 
     exq["run"] = api::run;
-    // exq["getCursor"] = api::getCursor;
+    exq["getCursor"] = api::getCursor;
+    exq["setCursor"] = api::setCursor;
     exq["getBufferText"] = api::getBufferText;
     exq["getBufferLanguage"] = api::getBufferLanguage;
     exq["replaceBufferText"] = api::replaceBufferText;
