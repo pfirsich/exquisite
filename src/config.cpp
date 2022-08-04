@@ -84,6 +84,11 @@ namespace api {
         return editor::getBuffer().getText().getString();
     }
 
+    std::string getBufferLanguage()
+    {
+        return editor::getBuffer().getLanguage()->name;
+    }
+
     void replaceBufferText(std::string_view text, std::optional<bool> undoable)
     {
         if (undoable.value_or(true)) {
@@ -145,6 +150,7 @@ void loadConfig()
     exq["run"] = api::run;
     // exq["getCursor"] = api::getCursor;
     exq["getBufferText"] = api::getBufferText;
+    exq["getBufferLanguage"] = api::getBufferLanguage;
     exq["replaceBufferText"] = api::replaceBufferText;
 
     // config

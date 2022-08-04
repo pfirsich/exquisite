@@ -1,4 +1,7 @@
-exq.hook("presave", function()
+local function clangFormat()
+    if exq.getBufferLanguage() ~= "C++" then
+        return
+    end
     local ret = exq.run(
         {"clang-format"}, -- "--cursor", cursor.start.offset
         {stdin = exq.getBufferText()})
@@ -11,4 +14,8 @@ exq.hook("presave", function()
     else
         exq.debug(ret.stderr)
     end
-end)
+end
+
+exq.hook("presave", clangFormat)
+
+return {clangFormat = clangFormat}
