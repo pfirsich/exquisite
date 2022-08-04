@@ -13,7 +13,7 @@ local function clangFormat()
     end
 
     if ret.status == 0 then
-        local headerStart, headerEnd = ret.stdout:find("({.+}\n)")
+        local headerStart, headerEnd = ret.stdout:find("({.-}\n)")
         local header = ret.stdout:sub(headerStart, headerEnd)
         local cursorOffset = tonumber(header:match("\"Cursor\": (%d+),"))
         local code = ret.stdout:sub(headerEnd + 1)
