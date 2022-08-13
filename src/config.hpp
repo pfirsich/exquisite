@@ -12,6 +12,8 @@ struct Config {
     size_t indentWidth = 4;
     uint8_t cursor = 5;
 
+    std::string colorscheme = "default";
+
     bool renderWhitespace = true;
     struct Whitespace {
         std::string space = "·";

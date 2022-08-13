@@ -15,6 +15,47 @@
 
 namespace fs = std::filesystem;
 
+constexpr std::string_view initScript = R"(
+exq.colorschemes = {
+    default = {
+        -- editor
+        ["error.prompt"] = 1,
+        ["whitespace"] = "#515253",
+        ["background"] = "#292a2b",
+        ["highlight.currentline"] = "#31353a",
+        ["highlight.match.prompt"] = 243,
+        ["highlight.selection"] = 240,
+
+        -- code
+        ["identifier"] = "#55b6ff",
+        ["identifier.namespace"] = 255,
+        ["identifier.type"] = "#ffcc88",
+        ["identifier.type.primitive"] = 208,
+        ["identifier.type.auto"] = 228,
+        ["identifier.field"] = 51,
+        ["keyword"] = "ff75b5",
+        ["function"] = 69,
+        ["literal.string"] = "#19f9d8",
+        ["literal.string.raw"] = "#19f9d8",
+        ["literal.string.systemlib"] = 36,
+        ["literal.char"] = 83,
+        ["literal.number"] = 215,
+        ["literal.boolean.true"] = "#ffb86c",
+        ["literal.boolean.false"] = "#ffb86c",
+        ["comment"] = "#7c8092",
+        ["include"] = 204,
+        ["bracket.round.open"] = 1,
+        ["bracket.round.close"] = 1,
+        ["bracket.square.open"] = 2,
+        ["bracket.square.close"] = 2,
+        ["bracket.curly.open"] = 3,
+        ["bracket.curly.close"] = 3,
+        ["bracket.angle.open"] = 4,
+        ["bracket.angle.close"] = 4,
+    }
+}
+)";
+
 namespace {
 sol::state& getLuaState()
 {
@@ -85,10 +126,12 @@ namespace api {
         const auto& buffer = editor::getBuffer();
         const auto& cursor = buffer.getCursor();
         return lua.create_table_with("start",
-            lua.create_table_with("x", static_cast<int>(cursor.start.x), "y", static_cast<int>(cursor.start.y), "offset",
+            lua.create_table_with("x", static_cast<int>(cursor.start.x), "y",
+                static_cast<int>(cursor.start.y), "offset",
                 static_cast<int>(buffer.getCursorOffset(cursor.start))),
             "end",
-            lua.create_table_with("x", static_cast<int>(cursor.end.x), "y", static_cast<int>(cursor.end.y), "offset",
+            lua.create_table_with("x", static_cast<int>(cursor.end.x), "y",
+                static_cast<int>(cursor.end.y), "offset",
                 static_cast<int>(buffer.getCursorOffset(cursor.end))));
     }
 
@@ -181,6 +224,8 @@ void loadConfig()
     exq["getBufferLanguage"] = api::getBufferLanguage;
     exq["replaceBufferText"] = api::replaceBufferText;
 
+    exq["colorschemes"] = lua.create_table();
+
     // config
     auto& config = Config::get();
 
@@ -190,6 +235,7 @@ void loadConfig()
     lconfig["indentUsingSpaces"] = config.indentUsingSpaces;
     lconfig["indentWidth"] = config.indentWidth;
     lconfig["cursor"] = config.cursor;
+    lconfig["colorscheme"] = config.colorscheme;
 
     lconfig["renderWhitespace"] = config.renderWhitespace;
     auto ws = lconfig.create("whitespace");
@@ -204,6 +250,8 @@ void loadConfig()
     lconfig["highlightCurrentLine"] = config.highlightCurrentLine;
     lconfig["numPromptOptions"] = config.numPromptOptions;
 
+    lua.script(initScript);
+
     if (fs::exists(configFilePath)) {
         lua.script_file(configFilePath.u8string());
     }
@@ -216,6 +264,7 @@ void loadConfig()
     config.indentUsingSpaces = lconfig["indentUsingSpaces"];
     config.indentWidth = lconfig["indentWidth"];
     config.cursor = lconfig["cursor"];
+    config.colorscheme = lconfig["colorscheme"];
 
     config.whitespace.space = ws["space"];
     config.whitespace.newline = ws["newline"];
@@ -227,6 +276,20 @@ void loadConfig()
     config.showLineNumbers = lconfig["showLineNumbers"];
     config.highlightCurrentLine = lconfig["highlightCurrentLine"];
     config.numPromptOptions = lconfig["numPromptOptions"];
+
+    std::vector<std::pair<std::string, Color>> cs;
+    exq["colorschemes"][config.colorscheme].get<sol::table>().for_each(
+        [&cs](sol::object lscope, sol::object lcolor) {
+            auto scope = lscope.as<std::string>();
+            Color color;
+            if (lcolor.is<uint8_t>()) {
+                color = ColorIndex { lcolor.as<uint8_t>() };
+            } else {
+                color = RgbColor::fromHex(lcolor.as<std::string>()).value();
+            }
+            cs.push_back(std::make_pair(std::move(scope), color));
+        });
+    colorScheme = ColorScheme(cs);
 
     executeHook("init");
 }

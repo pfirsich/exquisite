@@ -34,9 +34,9 @@ namespace {
     }
 
     template <typename Value = size_t>
-    class LazyTerminalState {
+    class LazyMappedTerminalState {
     public:
-        LazyTerminalState(const std::vector<std::string>& values, Value initial = {})
+        LazyMappedTerminalState(const std::vector<std::string>& values, Value initial = {})
             : values_(values)
             , current_(initial)
         {
@@ -92,9 +92,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
     assert(firstLine < lineCount);
     assert(lastLine < lineCount);
 
-    LazyTerminalState<bool> faint(
-        { std::string(control::sgr::resetIntensity), std::string(control::sgr::faint) });
-    LazyTerminalState<bool> invert(
+    LazyMappedTerminalState<bool> invert(
         { std::string(control::sgr::resetInvert), std::string(control::sgr::invert) });
 
     const auto showLineNumbers = config.showLineNumbers && !prompt;
@@ -122,11 +120,27 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
     const auto highlightCurrentLine = config.highlightCurrentLine && !prompt;
 
     enum class Background { Normal = 0, CurrentLine, Highlight };
-    LazyTerminalState<Background> background({
+    LazyMappedTerminalState<Background> background({
         std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.selection"],
     });
+
+    std::string currentFgColor = "";
+    auto setFgColor = [&currentFgColor](std::string_view color) {
+        if (color != currentFgColor) {
+            if (color == control::sgr::resetFgColor) {
+                terminal::bufferWrite(control::sgr::resetFgColor);
+            } else {
+                terminal::bufferWrite(control::sgr::fgColorPrefix);
+                terminal::bufferWrite(color);
+            }
+            currentFgColor = color;
+        }
+    };
+
+    const auto whitespaceColor
+        = std::string(control::sgr::fgColorPrefix) + colorScheme["whitespace"];
 
     buffer.updateHighlighting();
     const auto highlighting = buffer.getHighlighting();
@@ -146,7 +160,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
         size_t lineCursor = 0;
 
         // reset fg color before each line
-        terminal::bufferWrite(control::sgr::resetFgColor);
+        setFgColor(control::sgr::resetFgColor);
 
         background.set(Background::Normal);
 
@@ -185,11 +199,10 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 const auto& curHighlight = highlights[highlightIdx];
                 const auto inHighlight = i >= curHighlight.start && i < curHighlight.end;
 
-                if (i == curHighlight.start || (inHighlight && i == line.offset)) {
-                    terminal::bufferWrite(control::sgr::fgColorPrefix);
-                    terminal::bufferWrite(highlighting->getColor(curHighlight.id));
-                } else if (i == curHighlight.end) {
-                    terminal::bufferWrite(control::sgr::resetFgColor);
+                if (inHighlight) {
+                    setFgColor(highlighting->getColor(curHighlight.id));
+                } else {
+                    setFgColor(control::sgr::resetFgColor);
                 }
             }
 
@@ -205,14 +218,14 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
 
             if (ch == ' ' && config.renderWhitespace && !config.whitespace.space.empty()) {
                 // If whitespace is not rendered, this will fall into "else"
-                faint.set(true);
+                setFgColor(whitespaceColor);
                 terminal::bufferWrite(config.whitespace.space);
 
                 lineCursor++;
                 if (moveCursor)
                     drawCursor.x++;
             } else if (ch == '\t') {
-                faint.set(true);
+                setFgColor(whitespaceColor);
                 const bool tabChars = !config.whitespace.tabStart.empty()
                     || !config.whitespace.tabMid.empty() || !config.whitespace.tabEnd.empty();
                 assert(buffer.tabWidth > 0);
@@ -236,7 +249,7 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 if (moveCursor)
                     drawCursor.x += tabStr.size();
             } else if (std::iscntrl(ch)) {
-                faint.set(true);
+                setFgColor(whitespaceColor);
                 auto str = getControlString(ch);
                 if (lineCursor + str.size() > textWidth)
                     str = str.substr(0, textWidth - lineCursor);
@@ -248,7 +261,6 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
             } else {
                 const auto len = utf8::getCodePointLength(text, text.getSize(), i);
 
-                faint.set(false);
                 for (size_t j = 0; j < len; ++j)
                     terminal::bufferWrite(text[i + j]);
                 i += len - 1; // -1, because we i++ from the for loop anyway
@@ -264,9 +276,6 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 break;
         }
 
-        // reset fg color after line
-        terminal::bufferWrite(control::sgr::resetFgColor);
-
         // background for newline
         invert.set(selection.contains(i));
         background.set(i < highlightSelectionUntil ? Background::Highlight : lineBg);
@@ -275,12 +284,14 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
         const bool drawNewline = config.renderWhitespace && !config.whitespace.newline.empty()
             && lineCursor < textWidth && (i < text.getSize() && text[i] == '\n');
         if (drawNewline) {
-            faint.set(true);
+            setFgColor(whitespaceColor);
             terminal::bufferWrite(config.whitespace.newline);
         }
 
+        // reset after line
         invert.set(false);
         background.set(lineBg);
+        setFgColor(control::sgr::resetFgColor);
 
         if (highlightCurrentLine && cursorInLine) {
             const auto numSpaces
@@ -289,14 +300,12 @@ Vec drawBuffer(Buffer& buffer, const Vec& pos, const Vec& size, bool prompt = fa
                 terminal::bufferWrite(' ');
         }
 
-        faint.set(false);
         terminal::bufferWrite(control::clearLine);
         if (l - firstLine < size.y - 1)
             terminal::bufferWrite("\r\n");
     }
 
     background.set(Background::Normal);
-    terminal::bufferWrite(control::sgr::resetFgColor);
 
     for (size_t y = lastLine + 1; y < size.y; ++y) {
         if (pos.x > 0)
@@ -356,7 +365,7 @@ size_t getNumPromptOptions()
 Vec drawPrompt(const Vec& terminalSize)
 {
     enum class Background { Normal = 0, CurrentLine, Highlight };
-    LazyTerminalState<Background> background({
+    LazyMappedTerminalState<Background> background({
         std::string(control::sgr::bgColorPrefix) + colorScheme["background"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.currentline"],
         std::string(control::sgr::bgColorPrefix) + colorScheme["highlight.match.prompt"],

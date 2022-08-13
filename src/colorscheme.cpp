@@ -7,9 +7,10 @@
 #include "util.hpp"
 
 // https://en.wikipedia.org/wiki/ANSI_escape_code
-ColorScheme colorScheme = {
+ColorScheme colorScheme({
     // editor
     { "error.prompt", 1_uc },
+    { "whitespace", 238_uc },
     { "background", RgbColor { 41, 42, 43 } },
     { "highlight.currentline", 238_uc },
     { "highlight.match.prompt", 243_uc },
@@ -31,7 +32,7 @@ ColorScheme colorScheme = {
     { "literal.number", 215_uc },
     { "literal.boolean.true", 216_uc },
     { "literal.boolean.false", 216_uc },
-    { "comment", 240_uc },
+    { "comment", 245_uc },
     { "include", 204_uc },
     { "bracket.round.open", 1_uc },
     { "bracket.round.close", 1_uc },
@@ -41,9 +42,9 @@ ColorScheme colorScheme = {
     { "bracket.curly.close", 3_uc },
     { "bracket.angle.open", 4_uc },
     { "bracket.angle.close", 4_uc },
-};
+});
 
-ColorScheme::ColorScheme(std::initializer_list<std::pair<std::string, Color>> colors)
+ColorScheme::ColorScheme(std::vector<std::pair<std::string, Color>> colors)
 {
     for (const auto& entry : colors) {
         colors_.push_back(Entry { entry.first, control::sgr::color(entry.second) });

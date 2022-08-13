@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <queue>
+#include <charconv>
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -40,6 +41,39 @@ std::string Indentation::getString() const
     default:
         die("Invalid indentation type");
     }
+}
+
+namespace {
+    template <typename T>
+    std::optional<T> parseInteger(std::string_view str, int base = 10)
+    {
+        T v;
+        const auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), v, base);
+        if (ec != std::errc() || ptr != str.data() + str.size()) {
+            return std::nullopt;
+        }
+        return v;
+    }
+}
+
+std::optional<RgbColor> RgbColor::fromHex(std::string_view str)
+{
+    if (str.size() < 6) {
+        return std::nullopt;
+    }
+    if (str[0] == '#') {
+        str = str.substr(1);
+    }
+    if (str.size() != 6) {
+        return std::nullopt;
+    }
+    const auto r = parseInteger<uint8_t>(str.substr(0, 2), 16);
+    const auto g = parseInteger<uint8_t>(str.substr(2, 2), 16);
+    const auto b = parseInteger<uint8_t>(str.substr(4, 2), 16);
+    if (!r || !g || !b) {
+        return std::nullopt;
+    }
+    return RgbColor { *r, *g, *b };
 }
 
 void die(std::string_view msg)

@@ -15,7 +15,7 @@ public:
         std::string color;
     };
 
-    ColorScheme(std::initializer_list<std::pair<std::string, Color>> colors);
+    ColorScheme(std::vector<std::pair<std::string, Color>> colors);
 
     const std::vector<Entry>& getColors() const;
     std::optional<size_t> getEntryId(std::string_view name) const;

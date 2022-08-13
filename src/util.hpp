@@ -57,6 +57,8 @@ struct Range {
 
 struct RgbColor {
     uint8_t r, g, b;
+
+    static std::optional<RgbColor> fromHex(std::string_view str);
 };
 using ColorIndex = uint8_t;
 using Color = std::variant<ColorIndex, RgbColor>;
